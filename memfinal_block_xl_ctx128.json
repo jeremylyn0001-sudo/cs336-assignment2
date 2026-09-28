@@ -1,0 +1,15 @@
+{
+  "allocated_before_backward_bytes": 14006189056,
+  "allocated_after_backward_bytes": 14292254208,
+  "reserved_before_backward_bytes": 14487126016,
+  "reserved_after_backward_bytes": 14487126016,
+  "saved_tensor_release_bytes": -286065152,
+  "saved_tensor_release_mib": -272.81298828125,
+  "reserved_delta_bytes": 0,
+  "backward_peak_allocated_bytes": 14318470656,
+  "backward_peak_delta_bytes": 312281600,
+  "autograd_saved_tensor_bytes": 612610048,
+  "autograd_saved_tensor_released_bytes": 612610048,
+  "autograd_saved_tensor_released_mib": 584.23046875,
+  "autograd_saved_tensor_live_tokens": 0
+}

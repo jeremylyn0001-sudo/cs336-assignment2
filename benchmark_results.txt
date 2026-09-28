@@ -1,0 +1,141 @@
+=== 开始基准测速 ===
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[SMALL] dtype=fp32 mode=forward  | Time: 24.34 ± 0.08 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[SMALL] dtype=fp32 mode=backward | Time: 74.44 ± 0.18 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[SMALL] dtype=fp32 mode=full     | Time: 85.96 ± 0.22 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[SMALL] dtype=bf16 mode=forward  | Time: 12.94 ± 0.03 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[SMALL] dtype=bf16 mode=backward | Time: 41.63 ± 0.06 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[SMALL] dtype=bf16 mode=full     | Time: 53.66 ± 2.14 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[MEDIUM] dtype=fp32 mode=forward  | Time: 74.80 ± 0.06 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[MEDIUM] dtype=fp32 mode=backward | Time: 219.76 ± 0.21 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[MEDIUM] dtype=fp32 mode=full     | Time: 256.82 ± 0.46 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[MEDIUM] dtype=bf16 mode=forward  | Time: 37.84 ± 0.43 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[MEDIUM] dtype=bf16 mode=backward | Time: 118.14 ± 0.16 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[MEDIUM] dtype=bf16 mode=full     | Time: 154.57 ± 0.16 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[LARGE] dtype=fp32 mode=forward  | Time: 172.57 ± 0.14 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[LARGE] dtype=fp32 mode=backward | Time: 494.49 ± 1.03 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[LARGE] dtype=fp32 mode=full     | Time: 577.45 ± 0.57 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[LARGE] dtype=bf16 mode=forward  | Time: 79.54 ± 0.03 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[LARGE] dtype=bf16 mode=backward | Time: 249.20 ± 2.23 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[LARGE] dtype=bf16 mode=full     | Time: 332.23 ± 0.44 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[XL] dtype=fp32 mode=forward  | Time: 439.12 ± 1.19 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[XL] dtype=fp32 mode=backward | Time: 1208.30 ± 5.05 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+Traceback (most recent call last):
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 198, in <module>
+    main()
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 193, in main
+    mean_ms, std_ms, _ = run_benchmark(step_fn, warmups=args.warmups, trials=args.trials)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 70, in run_benchmark
+    step_fn()
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 166, in full_step_fn
+    optimizer.step()
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/optimizer.py", line 533, in wrapper
+    out = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/optimizer.py", line 81, in _use_grad
+    ret = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/adam.py", line 238, in step
+    has_complex = self._init_group(
+                  ^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/adam.py", line 178, in _init_group
+    state["exp_avg"] = torch.zeros_like(
+                       ^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 26.00 MiB. GPU 0 has a total capacity of 47.37 GiB of which 3.88 MiB is free. Including non-PyTorch memory, this process has 47.36 GiB memory in use. Of the allocated memory 45.46 GiB is allocated by PyTorch, and 1.44 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[XL] dtype=bf16 mode=forward  | Time: 188.95 ± 0.22 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+[XL] dtype=bf16 mode=backward | Time: 592.01 ± 0.30 ms (warmups=5, trials=10)
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+GPU: NVIDIA GeForce RTX 4090
+Traceback (most recent call last):
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 198, in <module>
+    main()
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 193, in main
+    mean_ms, std_ms, _ = run_benchmark(step_fn, warmups=args.warmups, trials=args.trials)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 70, in run_benchmark
+    step_fn()
+  File "/root/autodl-tmp/cs336/assignment2-systems/benchmark.py", line 166, in full_step_fn
+    optimizer.step()
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/optimizer.py", line 533, in wrapper
+    out = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/optimizer.py", line 81, in _use_grad
+    ret = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/adam.py", line 238, in step
+    has_complex = self._init_group(
+                  ^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/optim/adam.py", line 178, in _init_group
+    state["exp_avg"] = torch.zeros_like(
+                       ^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 100.00 MiB. GPU 0 has a total capacity of 47.37 GiB of which 99.88 MiB is free. Including non-PyTorch memory, this process has 47.27 GiB memory in use. Of the allocated memory 45.02 GiB is allocated by PyTorch, and 1.79 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

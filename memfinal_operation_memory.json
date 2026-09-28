@@ -1,0 +1,41 @@
+{
+  "metric": "self_cuda_memory_usage",
+  "total_bytes": 58709833728,
+  "top5": [
+    {
+      "operation": "aten::mm",
+      "bytes": 17543725056,
+      "rank": 1,
+      "mib": 16731.0,
+      "share_percent": 29.882089493353504
+    },
+    {
+      "operation": "aten::empty_strided",
+      "bytes": 13762701824,
+      "rank": 2,
+      "mib": 13125.13525390625,
+      "share_percent": 23.44190223355422
+    },
+    {
+      "operation": "<built-in method run_backward of torch._C._EngineBase object at 0x7f6179217490>",
+      "bytes": 8814337536,
+      "rank": 3,
+      "mib": 8406.00732421875,
+      "share_percent": 15.013392095158073
+    },
+    {
+      "operation": "aten::mul",
+      "bytes": 5937174528,
+      "rank": 4,
+      "mib": 5662.130859375,
+      "share_percent": 10.112742876272927
+    },
+    {
+      "operation": "aten::div",
+      "bytes": 3314681856,
+      "rank": 5,
+      "mib": 3161.126953125,
+      "share_percent": 5.645871646233527
+    }
+  ]
+}

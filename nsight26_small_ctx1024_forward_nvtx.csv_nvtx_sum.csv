@@ -1,0 +1,5 @@
+Time (%),Total Time (ns),Instances,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Style,Range
+84.5,368581467,3,122860489.0,32394912.0,10958252,325228303,175583119.1,PushPop,:forward_pass
+12.5,54383733,327,166311.1,1319.0,1069,53519908,2959534.7,PushPop,cuBLAS:cublasLtSSSMatmulAlgoGetHeuristic
+2.3,9898583,327,30270.9,10748.0,6694,649805,94643.8,PushPop,cuBLAS:cublasLtSSSMatmul
+0.8,3557488,1,3557488.0,3557488.0,3557488,3557488,0.0,PushPop,cuBLAS:cublasCreate_v2
