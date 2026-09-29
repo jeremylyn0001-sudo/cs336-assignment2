@@ -51,7 +51,7 @@ def flash_backward_impl(Q, K, V, O, L ,dO, is_causal):
 
 compiled_backward = torch.compile(flash_backward_impl)
 
-class FlashAttention(torch.autograd.Function):
+class FlashAttention_Pytorch(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, Q, K, V, is_causal=False):
@@ -105,7 +105,7 @@ class FlashAttention(torch.autograd.Function):
     @staticmethod
     def backward(ctx, dO):
         Q, K, V, O, L = ctx.saved_tensors
-        dQ, dK, dV = compiled_backward(
+        dQ, dK, dV = flash_backward_impl(
             Q, K, V, O, L, dO, ctx.is_causal
         )
         return dQ, dK, dV, None
