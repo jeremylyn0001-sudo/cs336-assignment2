@@ -1,0 +1,135 @@
+{
+  "collected_at_utc": "2026-09-29T13:41:33.655764+00:00",
+  "hardware": {
+    "gpu": "NVIDIA H800 PCIe",
+    "memory_total_mib": 81559,
+    "driver": "580.82.07",
+    "cuda_driver_runtime": "13.0"
+  },
+  "software": {
+    "python": "3.12.3",
+    "pytorch": "2.12.1+cu130",
+    "torch_cuda": "13.0",
+    "triton": "3.7.1"
+  },
+  "benchmark": {
+    "batch_size": 1,
+    "causal": true,
+    "sequence_lengths": [
+      128,
+      256,
+      512,
+      1024,
+      2048,
+      4096,
+      8192,
+      16384,
+      32768,
+      65536
+    ],
+    "head_dims": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "dtypes": [
+      "bf16",
+      "fp32"
+    ],
+    "warmup_ms": 25,
+    "rep_ms": 100,
+    "timer": "triton.testing.do_bench",
+    "implementations": [
+      "custom Triton FA2",
+      "dense PyTorch attention"
+    ],
+    "latency_unit": "ms"
+  },
+  "results": {
+    "rows": 160,
+    "ok_rows": 156,
+    "partial_rows": 4,
+    "summary": {
+      "forward_ms": {
+        "paired_configs": 80,
+        "triton_faster_count": 59,
+        "geometric_mean_pytorch_over_triton": 1.3945009596713163,
+        "by_dtype": {
+          "bf16": {
+            "paired_configs": 40,
+            "geometric_mean_pytorch_over_triton": 2.4402497127788956
+          },
+          "fp32": {
+            "paired_configs": 40,
+            "geometric_mean_pytorch_over_triton": 0.7968991518944682
+          }
+        }
+      },
+      "backward_ms": {
+        "paired_configs": 76,
+        "triton_faster_count": 24,
+        "geometric_mean_pytorch_over_triton": 0.5799634072499574,
+        "by_dtype": {
+          "bf16": {
+            "paired_configs": 40,
+            "geometric_mean_pytorch_over_triton": 0.6164734329059005
+          },
+          "fp32": {
+            "paired_configs": 36,
+            "geometric_mean_pytorch_over_triton": 0.541927070130817
+          }
+        }
+      },
+      "e2e_ms": {
+        "paired_configs": 76,
+        "triton_faster_count": 37,
+        "geometric_mean_pytorch_over_triton": 0.7942978407823673,
+        "by_dtype": {
+          "bf16": {
+            "paired_configs": 40,
+            "geometric_mean_pytorch_over_triton": 0.8865686370029516
+          },
+          "fp32": {
+            "paired_configs": 36,
+            "geometric_mean_pytorch_over_triton": 0.702993290374442
+          }
+        }
+      }
+    },
+    "partial_cases": [
+      {
+        "implementation": "pytorch_dense",
+        "seq_len": 65536,
+        "head_dim": 16,
+        "dtype": "fp32",
+        "reason": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.34 GiB is allocated by PyTorch, and 15.95 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.09 GiB is allocated by PyTorch, and 197.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "implementation": "pytorch_dense",
+        "seq_len": 65536,
+        "head_dim": 32,
+        "dtype": "fp32",
+        "reason": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.36 GiB is allocated by PyTorch, and 15.92 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.12 GiB is allocated by PyTorch, and 169.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "implementation": "pytorch_dense",
+        "seq_len": 65536,
+        "head_dim": 64,
+        "dtype": "fp32",
+        "reason": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.41 GiB is allocated by PyTorch, and 15.88 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.17 GiB is allocated by PyTorch, and 113.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "implementation": "pytorch_dense",
+        "seq_len": 65536,
+        "head_dim": 128,
+        "dtype": "fp32",
+        "reason": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.50 GiB is allocated by PyTorch, and 15.78 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.28 GiB is allocated by PyTorch, and 1.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      }
+    ]
+  },
+  "notes": [
+    "Measured on one NVIDIA H800 PCIe as a substitute; these are H800 results, not B200 results.",
+    "Dense PyTorch backward and end-to-end OOMed for N=65536 FP32 at D=16,32,64,128; forward latencies were retained."
+  ]
+}
