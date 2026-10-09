@@ -7,8 +7,10 @@ def flash_backward_impl(Q, K, V, O, L, dO, is_causal):
     B, Nq, D = Q.shape
     Nk = K.shape[1]
 
-    BLOCK_Q = 16
-    BLOCK_K = 16
+    # Keep one full Q tile and stream K/V in bounded chunks. This avoids
+    # tracing thousands of tiny Python loop iterations under torch.compile.
+    BLOCK_Q = Nq
+    BLOCK_K = min(1024, Nk)
 
     # Accumulate in FP32 so BF16 forward probabilities can multiply BF16 dO/V.
     dQ = torch.zeros(Q.shape, device=Q.device, dtype=torch.float32)
