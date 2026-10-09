@@ -39,6 +39,19 @@ The Triton forward is substantially faster on long inputs, but the compiled PyTo
 
 Four dense FP32 cases at N=65,536 (D=16, 32, 64, 128) ran out of memory during backward and end-to-end timing. All 80 hybrid rows completed; the CSV marks the four dense rows as partial. No peak-memory measurements were collected.
 
+## Why the hybrid backward is slower, and what to optimize next
+
+Both dense attention and FlashAttention compute the required gradient terms `dP` and `dS`. The difference is how they obtain and move the forward probabilities. Dense attention retains the full `P` (or equivalent softmax state) from the forward pass and reuses it in backward. FlashAttention does not retain an `N × N` probability matrix; it recomputes each score/probability tile from `Q`, `K`, and the saved row-wise log-sum-exp values, then computes the same `dP` and `dS` equations for that tile. The additional work is the score product `QKᵀ` and softmax reconstruction, plus tile scheduling. In exchange, it avoids writing and reading large attention intermediates from HBM.
+
+The relevant break-even condition is about elapsed time: if recomputing scores/probabilities and scheduling tiles costs more than the HBM time saved, the implementation is slower. Compute intensity alone cannot be compared directly with HBM traffic; the actual compute and memory times depend on the GPU, shape, dtype, and kernel efficiency. In this hybrid run, the backward is compiled blockwise PyTorch rather than a fully fused production Triton kernel. The measurements show that this implementation's backward cost outweighs the faster Triton forward for end-to-end latency; they do not establish that optimized FlashAttention is generally slower.
+
+The H800 results give a clear next-step order:
+
+1. Profile backward with Nsight to separate score/probability recomputation, gradient GEMMs, elementwise work, launches, and memory stalls.
+2. Improve the backward tiles and fusion. In particular, avoid very large temporary query-by-key blocks in the compiled path; benchmark smaller `BLOCK_Q`/`BLOCK_K` combinations and fuse tile-local `dP`/`dS` work and gradient accumulation in Triton where practical. Tune warps and stages by head dimension and dtype rather than assuming one tile works everywhere.
+3. Re-run correctness and forward/backward/end-to-end timing after each kernel change. Add peak allocated and reserved memory measurements for both implementations under the same shapes and warmup so the memory benefit is quantified rather than inferred from OOM cases.
+4. If the goal is a production-facing speed claim, compare against PyTorch SDPA's fused attention path as well as the dense reference; a dense implementation that materializes attention is not the only baseline used in practice.
+
 ## Full Triton backward and causal-tile pruning
 
 The separate full-Triton forward/backward comparison is in [`flashattention_benchmark_h800_causal_pruned.csv`](../flashattention_benchmark_h800_causal_pruned.csv), with metadata and aggregate statistics in its JSON summary. It is the optional tiled-Triton backward path, not the required hybrid path above.
@@ -69,4 +82,4 @@ These changes improve the custom Triton D=128 path, but it remains slower than d
 
 ## Conclusion
 
-The H800 hybrid experiment is complete as a substitute-hardware benchmark: it covers the required batch size, causal setting, shape/dtype grid, and forward/backward/end-to-end timings. It shows that Triton forward is faster on most shapes, but the `torch.compile` backward dominates and makes end-to-end slower than dense PyTorch on most configurations. The optional full-Triton backward and D=128 tile sweep provide additional data and tuning evidence. The data are now suitable for a writeup, provided the H800/B200 distinction and the backward bottleneck remain explicit.
+The H800 hybrid experiment is complete as a substitute-hardware run: it covers the required batch size, causal setting, shape/dtype grid, and forward/backward/end-to-end timings. It shows that Triton forward is faster on most shapes, but the `torch.compile` backward dominates and makes end-to-end slower than dense PyTorch on most successful comparisons. Four dense FP32 backward/end-to-end rows remain partial because they OOMed. The optional full-Triton backward and D=128 tile sweep provide additional data and tuning evidence. This closes the current H800 data-collection run; further kernel tuning and peak-memory measurement are follow-up work, and the H800 results do not replace a B200 run.
