@@ -315,7 +315,9 @@ class FlashAttention_Triton_CompiledBackward(torch.autograd.Function):
     @staticmethod
     def backward(ctx, dO):
         Q, K, V, O, L = ctx.saved_tensors
+        # Run the compiled PyTorch backward in FP32 for BF16 inputs, then
+        # return gradients in the original input dtype.
         dQ, dK, dV = compiled_backward(
-            Q, K, V, O, L, dO, ctx.is_causal
+            Q.float(), K.float(), V.float(), O.float(), L.float(), dO.float(), ctx.is_causal
         )
-        return dQ, dK, dV, None
+        return dQ.to(Q.dtype), dK.to(K.dtype), dV.to(V.dtype), None
