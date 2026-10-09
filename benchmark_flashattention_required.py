@@ -67,7 +67,10 @@ def main():
                 key = (row["seq_len"], row["head_dim"], row["dtype"], row["implementation"])
                 existing[key] = row
     completed = {
-        key for key, row in existing.items() if row["status"] in {"ok", "partial"}
+        key
+        for key, row in existing.items()
+        if row["status"] == "ok"
+        or (row["status"] == "partial" and "OutOfMemoryError" in row["error"])
     }
     mode = "a" if args.resume and output.exists() else "w"
     write_header = mode == "w" or output.stat().st_size == 0
