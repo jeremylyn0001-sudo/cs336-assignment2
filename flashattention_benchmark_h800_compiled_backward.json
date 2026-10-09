@@ -1,0 +1,146 @@
+{
+  "collected_at_utc": "2026-10-09T08:05:32.128569+00:00",
+  "hardware": {
+    "gpu": "NVIDIA H800 PCIe",
+    "memory_total_mib": 81559,
+    "driver": "580.82.07",
+    "cuda_driver_runtime": "13.0"
+  },
+  "software": {
+    "python": "3.12.3",
+    "pytorch": "2.12.1+cu130",
+    "torch_cuda": "13.0",
+    "triton": "3.7.1"
+  },
+  "benchmark": {
+    "batch_size": 1,
+    "causal": true,
+    "sequence_lengths": [
+      128,
+      256,
+      512,
+      1024,
+      2048,
+      4096,
+      8192,
+      16384,
+      32768,
+      65536
+    ],
+    "head_dims": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "dtypes": [
+      "bf16",
+      "fp32"
+    ],
+    "implementations": [
+      "triton_fwd_compiled_bwd",
+      "pytorch_dense"
+    ],
+    "timer": "triton.testing.do_bench",
+    "warmup_ms": 25,
+    "rep_ms": 100,
+    "backward": "torch.compile on PyTorch blockwise recomputation; Q tile spans the full sequence and K/V are processed in chunks up to 1024."
+  },
+  "results": {
+    "rows": 160,
+    "ok_rows": 156,
+    "partial_rows": 4,
+    "partial_cases": [
+      {
+        "seq_len": "65536",
+        "head_dim": "16",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 52.34 GiB is allocated by PyTorch, and 15.92 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 68.09 GiB is allocated by PyTorch, and 165.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "seq_len": "65536",
+        "head_dim": "32",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 52.36 GiB is allocated by PyTorch, and 15.89 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 68.12 GiB is allocated by PyTorch, and 137.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "seq_len": "65536",
+        "head_dim": "64",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 52.41 GiB is allocated by PyTorch, and 15.85 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 68.17 GiB is allocated by PyTorch, and 81.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "seq_len": "65536",
+        "head_dim": "128",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 52.50 GiB is allocated by PyTorch, and 15.75 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.27 GiB is free. Including non-PyTorch memory, this process has 68.90 GiB memory in use. Of the allocated memory 52.28 GiB is allocated by PyTorch, and 15.97 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      }
+    ],
+    "comparison": {
+      "all_configs": {
+        "forward_ms": {
+          "paired_configs": 76,
+          "geomean_dense_over_hybrid": 1.6568042558438592,
+          "hybrid_faster_count": 58
+        },
+        "backward_ms": {
+          "paired_configs": 76,
+          "geomean_dense_over_hybrid": 0.4095874819813931,
+          "hybrid_faster_count": 0
+        },
+        "e2e_ms": {
+          "paired_configs": 76,
+          "geomean_dense_over_hybrid": 0.5837930190371421,
+          "hybrid_faster_count": 2
+        }
+      },
+      "sequence_length_at_least_8192": {
+        "forward_ms": {
+          "paired_configs": 28,
+          "geomean_dense_over_hybrid": 2.9990986051855897,
+          "hybrid_faster_count": 25
+        },
+        "backward_ms": {
+          "paired_configs": 28,
+          "geomean_dense_over_hybrid": 0.4177595000668218,
+          "hybrid_faster_count": 0
+        },
+        "e2e_ms": {
+          "paired_configs": 28,
+          "geomean_dense_over_hybrid": 0.5647748517637453,
+          "hybrid_faster_count": 2
+        }
+      },
+      "sequence_length_at_least_8192_and_head_dim_at_most_64": {
+        "forward_ms": {
+          "paired_configs": 21,
+          "geomean_dense_over_hybrid": 4.326819856669771,
+          "hybrid_faster_count": 21
+        },
+        "backward_ms": {
+          "paired_configs": 21,
+          "geomean_dense_over_hybrid": 0.43653413070319247,
+          "hybrid_faster_count": 0
+        },
+        "e2e_ms": {
+          "paired_configs": 21,
+          "geomean_dense_over_hybrid": 0.6312724159556187,
+          "hybrid_faster_count": 2
+        }
+      }
+    },
+    "notes": [
+      "Geometric means use only fully successful paired configurations.",
+      "No peak-memory values were collected.",
+      "H800 is a hardware substitute for the handout specified single B200."
+    ]
+  }
+}

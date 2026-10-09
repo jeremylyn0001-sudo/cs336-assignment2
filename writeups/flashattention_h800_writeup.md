@@ -2,11 +2,9 @@
 
 ## Status and scope
 
-The requirements and point values below are from the [assignment handout](../cs336_assignment2_systems.pdf).
+The H800 substitute benchmark is now complete for the required hybrid path and the optional full-Triton backward experiments. The assignment specifies one B200; H800 results are a hardware substitute and must not be presented as B200 measurements. Requirements and point values are from the [assignment handout](../cs336_assignment2_systems.pdf).
 
-This report records the completed H800 substitute experiments for the custom Triton FlashAttention implementation, including causal-tile pruning and a D=128 backward tile sweep. The GPU was an NVIDIA H800 PCIe with 81,559 MiB of memory. This is substitute hardware: the assignment benchmarking problem specifies a single B200.
-
-The handout's required `flash_backward` (5 points) uses regular PyTorch backward compiled with `torch.compile`; the required `flash_benchmarking` problem (5 points) compares the partially Triton implementation against dense PyTorch on one B200. The hybrid implementation and `benchmark_flashattention_required.py` are in the repository, and a small correctness smoke test passed, but the full configuration sweep has not been collected. The H800 CSVs below measure the full Triton backward path instead. That path corresponds to the optional tiled Triton backward extension in Section 4.2.3. Therefore, the H800 full-Triton substitute experiment is complete, but the required hybrid benchmark deliverable is still open.
+The required `flash_backward` problem (5 points) uses PyTorch and `torch.compile`; `flash_benchmarking` (5 points) compares Triton forward plus that compiled PyTorch backward against dense PyTorch. The full H800 hybrid grid is included below. The full Triton backward and D=128 tile sweep are additional experiments for the optional Section 4.2.3 path.
 
 ## Experimental setup
 
@@ -17,58 +15,58 @@ The handout's required `flash_backward` (5 points) uses regular PyTorch backward
 | Python / PyTorch / Triton | 3.12.3 / 2.12.1+cu130 / 3.7.1 |
 | Batch size | 1 |
 | Masking | Causal |
-| Sequence lengths | 128, 256, 512, 1,024, 2,048, 4,096, 8,192, 16,384, 32,768, 65,536 |
+| Sequence lengths | 128 through 65,536, powers of two |
 | Head dimensions / dtypes | 16, 32, 64, 128 / BF16, FP32 |
-| Timer | `triton.testing.do_bench`; random inputs generated before timing |
+| Timer | `triton.testing.do_bench`, 25 ms warmup and 100 ms repetition |
 
-The full grid contains 80 shape/dtype configurations for each implementation. Each CSV stores forward, backward, and end-to-end latency in milliseconds. Four dense FP32 cases at sequence length 65,536 ran out of memory during backward and end-to-end timing; those rows are marked partial and are excluded from paired geometric means.
+Random inputs were generated before timing. The hybrid path uses Triton for forward and a compiled, blockwise PyTorch recomputation for backward. BF16 tensors are cast to FP32 inside the hybrid wrapper for the compiled backward, then the gradients are cast back to the input dtype. The standalone pure PyTorch implementation and dense baseline are unchanged.
 
-## Full Triton implementation versus dense PyTorch
+## Required hybrid path: Triton forward + compiled PyTorch backward
 
-The optimized full-Triton results are in [`flashattention_benchmark_h800_causal_pruned.csv`](../flashattention_benchmark_h800_causal_pruned.csv), with summary metadata in the corresponding JSON file. The table reports the geometric mean of dense-PyTorch latency divided by Triton latency, using fully successful paired configurations. Values above 1 mean Triton was faster.
+The full data is in [`flashattention_benchmark_h800_compiled_backward.csv`](../flashattention_benchmark_h800_compiled_backward.csv), with summary metadata in the accompanying JSON file. The table reports the geometric mean of dense-PyTorch latency divided by hybrid latency, using fully successful pairs; values above 1 mean the hybrid path was faster.
 
-| Region and metric | Paired configs | Dense / Triton geometric mean | Triton faster |
+| Region and metric | Paired configs | Dense / hybrid geometric mean | Hybrid faster |
 |---|---:|---:|---:|
-| All: forward | 76 | 1.69× | 58 / 76 |
-| All: backward | 76 | 0.75× | 33 / 76 |
-| All: end-to-end | 76 | 0.94× | 46 / 76 |
-| Sequence length ≥8,192: forward | 28 | 2.99× | 25 / 28 |
-| Sequence length ≥8,192: backward | 28 | 0.93× | 17 / 28 |
-| Sequence length ≥8,192: end-to-end | 28 | 1.19× | 19 / 28 |
-| Sequence length ≥8,192, D≤64: end-to-end | 21 | 2.02× | 19 / 21 |
+| All: forward | 76 | 1.66× | 58 / 76 |
+| All: backward | 76 | 0.41× | 0 / 76 |
+| All: end-to-end | 76 | 0.58× | 2 / 76 |
+| Sequence length ≥8,192: forward | 28 | 3.00× | 25 / 28 |
+| Sequence length ≥8,192: backward | 28 | 0.42× | 0 / 28 |
+| Sequence length ≥8,192: end-to-end | 28 | 0.56× | 2 / 28 |
+| Sequence length ≥8,192, D≤64: end-to-end | 21 | 0.63× | 2 / 21 |
 
-Across all paired shapes, Triton forward is faster on average, but its slower backward pulls end-to-end performance to about 6% behind dense PyTorch. For long sequences, the end-to-end average reverses to about 1.19× faster, with the clearest gains at D≤64. These latency measurements do not include peak-memory measurements; the memory advantage of avoiding an N×N score tensor is an algorithmic property, not a measured result in this experiment.
+The Triton forward is substantially faster on long inputs, but the compiled PyTorch backward is the bottleneck: its geometric-mean latency is about 2.44× dense PyTorch across all successful pairs. As a result, the end-to-end hybrid path is about 1.71× slower overall and 1.77× slower at sequence lengths ≥8,192. The H800 experiment therefore completes the required comparison grid as a substitute run, but it does not show an end-to-end speedup over dense PyTorch.
 
-## Causal tile pruning
+Four dense FP32 cases at N=65,536 (D=16, 32, 64, 128) ran out of memory during backward and end-to-end timing. All 80 hybrid rows completed; the CSV marks the four dense rows as partial. No peak-memory measurements were collected.
 
-The causal rule permits only key positions j≤i. For a query tile, K tiles strictly to the right of its last query row are fully masked and contribute zero. For a K tile, query tiles strictly to its left are fully masked and contribute zero to dK and dV. The implementation bounds the loops to skip those regions where the Triton code generator benefits from a bounded loop.
+## Full Triton backward and causal-tile pruning
 
-Compared with the previous fixed-loop Triton version, the causal-pruned version has an end-to-end geometric-mean speedup of about 1.10× over all 80 Triton configurations and 1.56× over the 32 configurations with sequence length at least 8,192. D=128 keeps the static full loop because a runtime-bounded loop regressed substantially on H800. The data and comparison are in [`flashattention_benchmark_h800_causal_pruned.json`](../flashattention_benchmark_h800_causal_pruned.json).
+The separate full-Triton forward/backward comparison is in [`flashattention_benchmark_h800_causal_pruned.csv`](../flashattention_benchmark_h800_causal_pruned.csv), with metadata and aggregate statistics in its JSON summary. It is the optional tiled-Triton backward path, not the required hybrid path above.
+
+Compared with the earlier fixed-loop Triton version, causal pruning improves the full Triton implementation's end-to-end geometric mean by about 1.10× across all 80 Triton configurations and 1.56× for the 32 configurations with N≥8,192. For causal attention, Q tile i can only attend to K positions j≤i; whole K tiles beyond that boundary have zero probability and gradient contribution. Skipping them reduces redundant matrix products and memory loads.
+
+The pruning is enabled for D<128. Dynamic loop bounds regressed on H800 for D=128, so that dimension retains the static full loop and is tuned separately below.
 
 ## D=128 backward tile sweep
 
-A separate sweep varied `BLOCK_Q`, `BLOCK_K`, warps, and stages for both dtypes. Results cover all ten sequence lengths; the short- and long-sequence sweeps are stored separately because their timer warmup/repetition settings differed. Candidate data is in [`flashattention_d128_tile_sweep_h800.csv`](../flashattention_d128_tile_sweep_h800.csv) and [`flashattention_d128_tile_sweep_h800_short.csv`](../flashattention_d128_tile_sweep_h800_short.csv); the [`JSON summary`](../flashattention_d128_tile_sweep_h800.json) records each candidate, shape, timing settings, and baseline comparison.
+The backward-only sweep varies `BLOCK_Q`, `BLOCK_K`, warps, and stages. Results cover all ten sequence lengths and both dtypes; short and long sweeps are stored separately because their warmup/repetition settings differ. See [`flashattention_d128_tile_sweep_h800.csv`](../flashattention_d128_tile_sweep_h800.csv), [`flashattention_d128_tile_sweep_h800_short.csv`](../flashattention_d128_tile_sweep_h800_short.csv), and the [summary JSON](../flashattention_d128_tile_sweep_h800.json).
 
-| Dtype | Original backward tile | Selected backward tile |
+| Dtype | Original tile | Selected tile |
 |---|---|---|
-| BF16, D=128 | Q32 × K64, 4 warps, 3 stages | Q64 × K32, 8 warps, 3 stages |
-| FP32, D=128 | Q32 × K32, 4 warps, 1 stage | Q32 × K64, 8 warps, 1 stage |
+| BF16 | Q32 × K64, 4 warps, 3 stages | Q64 × K32, 8 warps, 3 stages |
+| FP32 | Q32 × K32, 4 warps, 1 stage | Q32 × K64, 8 warps, 1 stage |
 
-The selected configurations were best across the tested sequence lengths, so the runtime dispatch is based on D and dtype rather than adding a separate threshold for every sequence length. The end-to-end geometric-mean speedup over the original Triton tile configuration is 1.47× for lengths 128–4,096 and 1.56× for lengths 8,192–65,536. At N=65,536, BF16 backward decreases from about 480 ms to 250 ms and end-to-end from about 496 ms to 267 ms. FP32 backward decreases from about 763 ms to 523 ms and end-to-end from about 1,074 ms to 810 ms.
+The selected configurations were best across the measured sequence lengths, so dispatch depends on D and dtype rather than a separate sequence-length threshold. Relative to the original Triton backward tile, end-to-end latency improves geometrically by 1.47× for N=128–4,096 and 1.56× for N=8,192–65,536. At N=65,536, BF16 backward falls from about 480 ms to 250 ms and end-to-end from 496 ms to 267 ms. FP32 backward falls from about 763 ms to 523 ms and end-to-end from 1,074 ms to 810 ms.
 
-These gains come from changing the work assigned to each CTA and the degree of parallelism within each tile. BF16 benefits from more query rows per CTA with a smaller K tile; FP32 benefits from a larger K tile and more warps. Increasing a tile is not automatically faster: larger tested tiles were slower or resource-limited. The sweep selects configurations empirically rather than assuming fewer loop iterations always wins.
-
-The D=128 optimization improves the custom Triton implementation but does not make it faster than dense PyTorch in the paired long-sequence D=128 cases. Dense PyTorch remains about 2.4× faster for BF16 and 2.7× faster for FP32 over the successful long cases; dense FP32 at N=65,536 is OOM. This result should be reported alongside the gains over the original Triton configuration.
+These changes improve the custom Triton D=128 path, but it remains slower than dense PyTorch end-to-end on the successful long D=128 comparisons. The tile results show why tuning must measure combinations: more warps and a different Q/K tile balance helped, while some larger K tiles were much slower or resource-limited.
 
 ## Correctness and limitations
 
-- `tests/test_attention.py`: 6 passed, including both causal settings for the tested D=64 Triton cases.
-- Full `pytest`: 8 passed and 6 failed. The failures are the existing FSDP and Sharded Optimizer tests, whose adapter functions are unimplemented; the FA2 and DDP tests passed.
-- A supplemental D=128 FP32 causal comparison against dense PyTorch passed with a 1e-2 tolerance. BF16 compared with a same-dtype dense reference has a small mismatch above 1e-2; the same discrepancy occurs with the original tile configuration. BF16 compared with an FP32 dense reference rounded to BF16 passed at 1e-2 in a small check. The supplied official attention tests use D=64, so they do not establish strict D=128 BF16 agreement.
-- Each candidate/shape in the tile sweep has one `do_bench` estimate. Treat small differences as indicative; repeat measurements before making a fine-grained claim.
+- `tests/test_attention.py`: 6 passed. The supplied attention tests use D=64; supplemental D=128 hybrid checks passed against dense PyTorch at 1e-2 for BF16 and FP32.
+- Full `pytest`: 8 passed and 6 failed. The failures are the existing FSDP and Sharded Optimizer tests, whose adapter implementations are not complete; FA2 and DDP tests passed.
+- All timing rows are single `do_bench` estimates. Small differences should be treated as indicative rather than statistically conclusive.
+- H800 is not B200. These are substitute-hardware results, and no peak-memory measurement was collected.
 
 ## Conclusion
 
-The H800 substitute run is complete for the full-Triton path and the D=128 tile-tuning extension. It shows clear forward gains and meaningful D=128 backward gains over the original Triton tile configuration, especially for long sequences. It does not establish that D=128 Triton is faster than dense PyTorch, and it does not replace the required hybrid Triton-forward/`torch.compile`-backward sweep on the assignment's specified B200 hardware. The hybrid benchmark script is present, but its full-grid result file is not yet available.
-
-
+The H800 hybrid experiment is complete as a substitute-hardware benchmark: it covers the required batch size, causal setting, shape/dtype grid, and forward/backward/end-to-end timings. It shows that Triton forward is faster on most shapes, but the `torch.compile` backward dominates and makes end-to-end slower than dense PyTorch on most configurations. The optional full-Triton backward and D=128 tile sweep provide additional data and tuning evidence. The data are now suitable for a writeup, provided the H800/B200 distinction and the backward bottleneck remain explicit.
