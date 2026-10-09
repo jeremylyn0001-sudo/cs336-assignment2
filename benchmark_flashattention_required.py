@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--dtypes", default="bf16,fp32")
     parser.add_argument("--warmup-ms", type=int, default=25)
     parser.add_argument("--rep-ms", type=int, default=100)
+    parser.add_argument("--resume", action="store_true", help="Resume a prior sweep and skip completed rows")
     args = parser.parse_args()
 
     seq_lens = [int(x) for x in args.seq_lens.split(",") if x]
@@ -50,16 +51,31 @@ def main():
     output = Path(args.output)
     fields = [
         "gpu", "seq_len", "head_dim", "dtype", "implementation",
-        "forward_ms", "backward_ms", "e2e_ms", "status", "error",
+        "warmup_ms", "rep_ms", "forward_ms", "backward_ms", "e2e_ms", "status", "error",
     ]
     implementations = ("triton_fwd_compiled_bwd", "pytorch_dense")
     total = len(seq_lens) * len(head_dims) * len(dtype_names) * len(implementations)
     index = 0
 
-    with output.open("w", newline="") as stream:
+    existing = {}
+    if args.resume and output.exists():
+        with output.open(newline="") as stream:
+            reader = csv.DictReader(stream)
+            if reader.fieldnames != fields:
+                raise ValueError(f"Cannot resume {output}: CSV columns do not match this script")
+            for row in reader:
+                key = (row["seq_len"], row["head_dim"], row["dtype"], row["implementation"])
+                existing[key] = row
+    completed = {
+        key for key, row in existing.items() if row["status"] in {"ok", "partial"}
+    }
+    mode = "a" if args.resume and output.exists() else "w"
+    write_header = mode == "w" or output.stat().st_size == 0
+    with output.open(mode, newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
-        writer.writeheader()
-        stream.flush()
+        if write_header:
+            writer.writeheader()
+            stream.flush()
 
         for n in seq_lens:
             for d in head_dims:
@@ -85,6 +101,10 @@ def main():
 
                     for implementation in implementations:
                         index += 1
+                        key = (str(n), str(d), dtype_name, implementation)
+                        if key in completed:
+                            print(f"[{index}/{total}] {implementation} N={n} D={d} {dtype_name} already complete; skipping", flush=True)
+                            continue
                         impl = impls[implementation]
                         print(
                             f"[{index}/{total}] {implementation} "
@@ -112,6 +132,8 @@ def main():
                             "head_dim": d,
                             "dtype": dtype_name,
                             "implementation": implementation,
+                            "warmup_ms": args.warmup_ms,
+                            "rep_ms": args.rep_ms,
                             **result,
                         })
                         stream.flush()
@@ -128,6 +150,18 @@ def main():
                     gc.collect()
                     torch.cuda.empty_cache()
 
+    if args.resume:
+        latest = {}
+        with output.open(newline="") as stream:
+            for row in csv.DictReader(stream):
+                key = (row["seq_len"], row["head_dim"], row["dtype"], row["implementation"])
+                latest[key] = row
+        temporary = output.with_suffix(output.suffix + ".tmp")
+        with temporary.open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(latest.values())
+        temporary.replace(output)
     print(f"Wrote {output.resolve()}")
 
 
