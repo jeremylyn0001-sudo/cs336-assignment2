@@ -1,0 +1,4 @@
+timestamp_utc,gpu,world_size,model,global_batch,local_batch,sequence_length,mode,warmups,trials,mean_step_ms,max_rank_step_ms,mean_communication_or_wait_ms
+2026-10-09T04:02:10.194287+00:00,NVIDIA RTX PRO 6000 Blackwell Server Edition,2,xl,4,2,512,naive,1,2,1067.5065186806023,1067.545029334724,451.5935489907861
+2026-10-09T04:03:08.730757+00:00,NVIDIA RTX PRO 6000 Blackwell Server Edition,2,xl,4,2,512,flat,1,2,1078.8198714144528,1078.8457309827209,425.3523740917444
+2026-10-09T04:04:04.401166+00:00,NVIDIA RTX PRO 6000 Blackwell Server Edition,2,xl,4,2,512,overlap,1,2,862.0194843970239,862.0604174211621,298.70178923010826
