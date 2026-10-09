@@ -3,6 +3,7 @@ import math
 import torch
 import triton
 import triton.language as tl
+from cs336_systems.flashattention_torch import compiled_backward
 
 
 @triton.jit
@@ -36,7 +37,12 @@ def flash_fwd_kernel(
     l = tl.zeros((BLOCK_Q,), dtype=tl.float32)
     O_acc = tl.zeros((BLOCK_Q, BLOCK_D), dtype=tl.float32)
     #取出当前计算的K,V tile
-    for start_k in range(0, N_K, BLOCK_K):
+    # Causal rows never use K tiles to the right of this Q tile. Keep D=128 on the static full loop; runtime bounds regressed there on H800.
+    if IS_CAUSAL and D < 128:
+        end_k = tl.minimum(N_K, ((pid_q + 1) * BLOCK_Q + BLOCK_K - 1) // BLOCK_K * BLOCK_K)
+    else:
+        end_k = N_K
+    for start_k in tl.range(0, end_k, BLOCK_K):
         cur_k = start_k + tl.arange(0, BLOCK_K)
         k_ptrs = (K_ptr + pid_b*stride_kb + cur_k[:, None]*stride_kn + offs_d[None, :]*stride_kd)
         v_ptrs = (V_ptr + pid_b*stride_vb + cur_k[:, None]*stride_vn + offs_d[None, :]*stride_vd)
@@ -103,7 +109,12 @@ def flash_bwd_q_kernel(
     o = tl.load(O_ptrs, mask = (offs_q[:, None]<N_Q)&(offs_d[None, :]<D), other=0.0)
     delta = tl.sum(o.to(tl.float32) * do.to(tl.float32), axis=-1)
     #对K,V_tile进行运算，求P,S的梯度
-    for start_k in range(0, N_K, BLOCK_K):
+    # Causal rows never use K tiles to the right of this Q tile. Keep D=128 on the static full loop; runtime bounds regressed there on H800.
+    if IS_CAUSAL and D < 128:
+        end_k = tl.minimum(N_K, ((pid_q + 1) * BLOCK_Q + BLOCK_K - 1) // BLOCK_K * BLOCK_K)
+    else:
+        end_k = N_K
+    for start_k in tl.range(0, end_k, BLOCK_K):
         cur_k = start_k + offs_k
         k_ptrs = (K_ptr + pid_b*stride_kb + cur_k[:, None]*stride_kn + offs_d[None, :]*stride_kd)
         v_ptrs = (V_ptr + pid_b*stride_vb + cur_k[:, None]*stride_vn + offs_d[None, :]*stride_vd)
@@ -160,7 +171,12 @@ def flash_bwd_kv_kernel(
     k = tl.load(k_ptrs, mask = (offs_k[:, None]<N_K)&(offs_d[None, :]<D), other=0.0)
     v = tl.load(v_ptrs, mask = (offs_k[:, None]<N_K)&(offs_d[None, :]<D), other=0.0)
     #对Q_tile进行运算，求V梯度
-    for start_q in range(0, N_Q, BLOCK_Q):
+    # Query tiles before the one overlapping this K tile have q < k everywhere, so their dK/dV contributions are exactly zero.
+    if IS_CAUSAL and D < 128:
+        start_q0 = (pid_k * BLOCK_K // BLOCK_Q) * BLOCK_Q
+    else:
+        start_q0 = 0
+    for start_q in tl.range(start_q0, N_Q, BLOCK_Q):
         cur_q = start_q + offs_q
         q_ptrs = (Q_ptr + pid_b*stride_qb + cur_q[:, None]*stride_qn +  offs_d[None, :]*stride_qd)
         l_ptrs = (L_ptr + pid_b*stride_lb + cur_q*stride_ln)
@@ -275,4 +291,21 @@ class FlashAttention_Triton(torch.autograd.Function):
             num_stages=num_stages,
         )
 
+        return dQ, dK, dV, None
+
+
+class FlashAttention_Triton_CompiledBackward(torch.autograd.Function):
+    """Required hybrid path: Triton forward with torch.compile backward."""
+
+    @staticmethod
+    def forward(ctx, Q, K, V, is_causal=False):
+        # Reuse the tested Triton forward implementation and its saved tensors.
+        return FlashAttention_Triton.forward(ctx, Q, K, V, is_causal)
+
+    @staticmethod
+    def backward(ctx, dO):
+        Q, K, V, O, L = ctx.saved_tensors
+        dQ, dK, dV = compiled_backward(
+            Q, K, V, O, L, dO, ctx.is_causal
+        )
         return dQ, dK, dV, None

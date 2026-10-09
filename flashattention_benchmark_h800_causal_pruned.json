@@ -1,0 +1,161 @@
+{
+  "collected_at_utc": "2026-10-09T05:28:17.628538+00:00",
+  "hardware": {
+    "gpu": "NVIDIA H800 PCIe",
+    "memory_total_mib": 81559,
+    "driver": "580.82.07",
+    "cuda_driver_runtime": "13.0"
+  },
+  "software": {
+    "python": "3.12.3",
+    "pytorch": "2.12.1+cu130",
+    "torch_cuda": "13.0",
+    "triton": "3.7.1"
+  },
+  "benchmark": {
+    "batch_size": 1,
+    "causal": true,
+    "sequence_lengths": [
+      128,
+      256,
+      512,
+      1024,
+      2048,
+      4096,
+      8192,
+      16384,
+      32768,
+      65536
+    ],
+    "head_dims": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "dtypes": [
+      "bf16",
+      "fp32"
+    ],
+    "warmup_ms": 25,
+    "rep_ms": 100,
+    "timer": "triton.testing.do_bench",
+    "implementations": [
+      "custom Triton FA2",
+      "dense PyTorch attention"
+    ],
+    "latency_unit": "ms",
+    "optimized_path": "Triton FA2 with causal tile-bound pruning for D < 128; D=128 uses the static full loop",
+    "previous_version_csv": "flashattention_benchmark_h800.csv",
+    "comparison_note": "Single H800 run per version; timings include normal run-to-run variation."
+  },
+  "results": {
+    "rows": 160,
+    "ok_rows": 156,
+    "partial_rows": 4,
+    "partial_cases": [
+      {
+        "seq_len": "65536",
+        "head_dim": "16",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.34 GiB is allocated by PyTorch, and 15.95 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.09 GiB is allocated by PyTorch, and 197.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "seq_len": "65536",
+        "head_dim": "32",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.36 GiB is allocated by PyTorch, and 15.92 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.12 GiB is allocated by PyTorch, and 169.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "seq_len": "65536",
+        "head_dim": "64",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.41 GiB is allocated by PyTorch, and 15.88 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.17 GiB is allocated by PyTorch, and 113.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      },
+      {
+        "seq_len": "65536",
+        "head_dim": "128",
+        "dtype": "fp32",
+        "implementation": "pytorch_dense",
+        "status": "partial",
+        "error": "backward:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 52.50 GiB is allocated by PyTorch, and 15.78 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) | e2e:OutOfMemoryError:CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 79.18 GiB of which 10.01 GiB is free. Including non-PyTorch memory, this process has 69.16 GiB memory in use. Of the allocated memory 68.28 GiB is allocated by PyTorch, and 1.50 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+      }
+    ],
+    "comparison_to_previous_triton_version": {
+      "all_configs": {
+        "forward_ms": {
+          "paired_configs": 80,
+          "geomean_new_over_previous": 0.8382846530487875,
+          "geomean_speedup": 1.192912212293359
+        },
+        "backward_ms": {
+          "paired_configs": 80,
+          "geomean_new_over_previous": 0.8816947576825391,
+          "geomean_speedup": 1.1341793645551623
+        },
+        "e2e_ms": {
+          "paired_configs": 80,
+          "geomean_new_over_previous": 0.9121399709375013,
+          "geomean_speedup": 1.096322967814025
+        }
+      },
+      "sequence_length_at_least_8192": {
+        "forward_ms": {
+          "paired_configs": 32,
+          "geomean_new_over_previous": 0.6740780057232388,
+          "geomean_speedup": 1.4835078307102894
+        },
+        "backward_ms": {
+          "paired_configs": 32,
+          "geomean_new_over_previous": 0.6314971035627236,
+          "geomean_speedup": 1.58353853779897
+        },
+        "e2e_ms": {
+          "paired_configs": 32,
+          "geomean_new_over_previous": 0.6406413973260625,
+          "geomean_speedup": 1.560935656318565
+        }
+      },
+      "sequence_length_at_least_8192_and_head_dim_at_most_64": {
+        "forward_ms": {
+          "paired_configs": 24,
+          "geomean_new_over_previous": 0.5891890199699527,
+          "geomean_speedup": 1.6972481938835142
+        },
+        "backward_ms": {
+          "paired_configs": 24,
+          "geomean_new_over_previous": 0.5396707617508297,
+          "geomean_speedup": 1.8529816155978966
+        },
+        "e2e_ms": {
+          "paired_configs": 24,
+          "geomean_new_over_previous": 0.5502081122230326,
+          "geomean_speedup": 1.8174941041120811
+        }
+      },
+      "head_dim_128": {
+        "forward_ms": {
+          "paired_configs": 20,
+          "geomean_new_over_previous": 1.0086315610897851,
+          "geomean_speedup": 0.9914423051758771
+        },
+        "backward_ms": {
+          "paired_configs": 20,
+          "geomean_new_over_previous": 1.0127796697017108,
+          "geomean_speedup": 0.9873815894176916
+        },
+        "e2e_ms": {
+          "paired_configs": 20,
+          "geomean_new_over_previous": 1.0451769777100273,
+          "geomean_speedup": 0.9567757626952236
+        }
+      }
+    }
+  }
+}
