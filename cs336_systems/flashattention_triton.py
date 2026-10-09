@@ -5,6 +5,56 @@ import triton
 import triton.language as tl
 
 
+def _hybrid_backward_impl(Q, K, V, O, L, dO, is_causal):
+    """Compiled PyTorch backward used only by Triton-forward hybrid FA2."""
+    batch, n_q, dim = Q.shape
+    n_k = K.shape[1]
+    block_q = n_q
+    block_k = min(1024, n_k)
+    scale = 1.0 / math.sqrt(dim)
+
+    dQ = torch.zeros(Q.shape, device=Q.device, dtype=torch.float32)
+    dK = torch.zeros(K.shape, device=K.device, dtype=torch.float32)
+    dV = torch.zeros(V.shape, device=V.device, dtype=torch.float32)
+    for q_start in range(0, n_q, block_q):
+        q_end = min(n_q, q_start + block_q)
+        q = Q[:, q_start:q_end, :].to(torch.float32)
+        do = dO[:, q_start:q_end, :].to(torch.float32)
+        o = O[:, q_start:q_end, :].to(torch.float32)
+        l = L[:, q_start:q_end].to(torch.float32)
+        delta = (o * do).sum(dim=-1)
+        q_pos = torch.arange(q_start, q_end, device=Q.device)[:, None]
+        for k_start in range(0, n_k, block_k):
+            k_end = min(n_k, k_start + block_k)
+            k = K[:, k_start:k_end, :].to(torch.float32)
+            v = V[:, k_start:k_end, :].to(torch.float32)
+            k_pos = torch.arange(k_start, k_end, device=Q.device)[None, :]
+            scores = (q @ k.transpose(-2, -1)) * scale
+            if is_causal:
+                scores = scores.masked_fill(k_pos > q_pos, -torch.inf)
+            p = torch.exp(scores - l.unsqueeze(-1))
+            dp = do @ v.transpose(-2, -1)
+            ds = p * (dp - delta.unsqueeze(-1))
+            dV[:, k_start:k_end, :] += p.transpose(-2, -1) @ do
+            dQ[:, q_start:q_end, :] += (ds @ k) * scale
+            dK[:, k_start:k_end, :] += (ds.transpose(-2, -1) @ q) * scale
+    return dQ.to(Q.dtype), dK.to(K.dtype), dV.to(V.dtype)
+
+
+_compiled_hybrid_backward = torch.compile(_hybrid_backward_impl)
+
+
+def _select_backward_tile_config(N_Q, N_K, D, dtype):
+    """Choose (BLOCK_Q, BLOCK_K, num_warps, num_stages) for FA2 backward."""
+    # H800 sweeps over sequence lengths 128..65536 favored these D=128 layouts.
+    if D == 128 and dtype == torch.bfloat16:
+        return 64, 32, 8, 3
+    if D == 128 and dtype == torch.float32:
+        return 32, 64, 8, 1
+    needs_small_k_tile = dtype == torch.float32 and D >= 128
+    return 32, (32 if needs_small_k_tile else 64), 4, (1 if needs_small_k_tile else 3)
+
+
 @triton.jit
 def flash_fwd_kernel(
     Q_ptr, K_ptr, V_ptr, O_ptr, L_ptr,
@@ -36,7 +86,12 @@ def flash_fwd_kernel(
     l = tl.zeros((BLOCK_Q,), dtype=tl.float32)
     O_acc = tl.zeros((BLOCK_Q, BLOCK_D), dtype=tl.float32)
     #取出当前计算的K,V tile
-    for start_k in range(0, N_K, BLOCK_K):
+    # Causal rows never use K tiles to the right of this Q tile. Keep D=128 on the static full loop; runtime bounds regressed there on H800.
+    if IS_CAUSAL and D < 128:
+        end_k = tl.minimum(N_K, ((pid_q + 1) * BLOCK_Q + BLOCK_K - 1) // BLOCK_K * BLOCK_K)
+    else:
+        end_k = N_K
+    for start_k in tl.range(0, end_k, BLOCK_K):
         cur_k = start_k + tl.arange(0, BLOCK_K)
         k_ptrs = (K_ptr + pid_b*stride_kb + cur_k[:, None]*stride_kn + offs_d[None, :]*stride_kd)
         v_ptrs = (V_ptr + pid_b*stride_vb + cur_k[:, None]*stride_vn + offs_d[None, :]*stride_vd)
@@ -103,7 +158,12 @@ def flash_bwd_q_kernel(
     o = tl.load(O_ptrs, mask = (offs_q[:, None]<N_Q)&(offs_d[None, :]<D), other=0.0)
     delta = tl.sum(o.to(tl.float32) * do.to(tl.float32), axis=-1)
     #对K,V_tile进行运算，求P,S的梯度
-    for start_k in range(0, N_K, BLOCK_K):
+    # Causal rows never use K tiles to the right of this Q tile. Keep D=128 on the static full loop; runtime bounds regressed there on H800.
+    if IS_CAUSAL and D < 128:
+        end_k = tl.minimum(N_K, ((pid_q + 1) * BLOCK_Q + BLOCK_K - 1) // BLOCK_K * BLOCK_K)
+    else:
+        end_k = N_K
+    for start_k in tl.range(0, end_k, BLOCK_K):
         cur_k = start_k + offs_k
         k_ptrs = (K_ptr + pid_b*stride_kb + cur_k[:, None]*stride_kn + offs_d[None, :]*stride_kd)
         v_ptrs = (V_ptr + pid_b*stride_vb + cur_k[:, None]*stride_vn + offs_d[None, :]*stride_vd)
@@ -160,7 +220,12 @@ def flash_bwd_kv_kernel(
     k = tl.load(k_ptrs, mask = (offs_k[:, None]<N_K)&(offs_d[None, :]<D), other=0.0)
     v = tl.load(v_ptrs, mask = (offs_k[:, None]<N_K)&(offs_d[None, :]<D), other=0.0)
     #对Q_tile进行运算，求V梯度
-    for start_q in range(0, N_Q, BLOCK_Q):
+    # Query tiles before the one overlapping this K tile have q < k everywhere, so their dK/dV contributions are exactly zero.
+    if IS_CAUSAL and D < 128:
+        start_q0 = (pid_k * BLOCK_K // BLOCK_Q) * BLOCK_Q
+    else:
+        start_q0 = 0
+    for start_q in tl.range(start_q0, N_Q, BLOCK_Q):
         cur_q = start_q + offs_q
         q_ptrs = (Q_ptr + pid_b*stride_qb + cur_q[:, None]*stride_qn +  offs_d[None, :]*stride_qd)
         l_ptrs = (L_ptr + pid_b*stride_lb + cur_q*stride_ln)
@@ -231,10 +296,9 @@ class FlashAttention_Triton(torch.autograd.Function):
         B, N_Q, D = Q.shape
         N_K = K.shape[1]
 
-        BLOCK_Q = 32
-        needs_small_k_tile = Q.dtype == torch.float32 and D >= 128
-        BLOCK_K = 32 if needs_small_k_tile else 64
-        num_stages = 1 if needs_small_k_tile else 3
+        BLOCK_Q, BLOCK_K, num_warps, num_stages = _select_backward_tile_config(
+            N_Q, N_K, D, Q.dtype
+        )
         BLOCK_D = triton.next_power_of_2(D)
 
         dQ = torch.empty_like(Q)
@@ -255,7 +319,7 @@ class FlashAttention_Triton(torch.autograd.Function):
             dQ.stride(0), dQ.stride(1), dQ.stride(2),
             N_Q, N_K, D, 1.0 / math.sqrt(D),
             BLOCK_Q, BLOCK_K, BLOCK_D, ctx.is_causal,
-            num_warps=4,
+            num_warps=num_warps,
             num_stages=num_stages,
         )
         #针对dK,dV的算子
@@ -271,8 +335,25 @@ class FlashAttention_Triton(torch.autograd.Function):
             dV.stride(0), dV.stride(1), dV.stride(2),
             N_Q, N_K, D, 1.0 / math.sqrt(D),
             BLOCK_Q, BLOCK_K, BLOCK_D, ctx.is_causal,
-            num_warps=4,
+            num_warps=num_warps,
             num_stages=num_stages,
         )
 
+        return dQ, dK, dV, None
+
+
+class FlashAttention_Triton_CompiledBackward(torch.autograd.Function):
+    """Required hybrid path: Triton forward with torch.compile backward."""
+
+    @staticmethod
+    def forward(ctx, Q, K, V, is_causal=False):
+        # Reuse the tested Triton forward implementation and its saved tensors.
+        return FlashAttention_Triton.forward(ctx, Q, K, V, is_causal)
+
+    @staticmethod
+    def backward(ctx, dO):
+        Q, K, V, O, L = ctx.saved_tensors
+        # Run the compiled PyTorch backward in FP32 for BF16 inputs, then
+        # return gradients in the original input dtype.
+        dQ, dK, dV = _compiled_hybrid_backward(Q, K, V, O, L, dO, ctx.is_causal)
         return dQ, dK, dV, None
