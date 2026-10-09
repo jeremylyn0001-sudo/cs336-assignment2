@@ -3,7 +3,45 @@ import math
 import torch
 import triton
 import triton.language as tl
-from cs336_systems.flashattention_torch import compiled_backward
+
+
+def _hybrid_backward_impl(Q, K, V, O, L, dO, is_causal):
+    """Compiled PyTorch backward used only by Triton-forward hybrid FA2."""
+    batch, n_q, dim = Q.shape
+    n_k = K.shape[1]
+    block_q = n_q
+    block_k = min(1024, n_k)
+    scale = 1.0 / math.sqrt(dim)
+
+    dQ = torch.zeros(Q.shape, device=Q.device, dtype=torch.float32)
+    dK = torch.zeros(K.shape, device=K.device, dtype=torch.float32)
+    dV = torch.zeros(V.shape, device=V.device, dtype=torch.float32)
+    for q_start in range(0, n_q, block_q):
+        q_end = min(n_q, q_start + block_q)
+        q = Q[:, q_start:q_end, :].to(torch.float32)
+        do = dO[:, q_start:q_end, :].to(torch.float32)
+        o = O[:, q_start:q_end, :].to(torch.float32)
+        l = L[:, q_start:q_end].to(torch.float32)
+        delta = (o * do).sum(dim=-1)
+        q_pos = torch.arange(q_start, q_end, device=Q.device)[:, None]
+        for k_start in range(0, n_k, block_k):
+            k_end = min(n_k, k_start + block_k)
+            k = K[:, k_start:k_end, :].to(torch.float32)
+            v = V[:, k_start:k_end, :].to(torch.float32)
+            k_pos = torch.arange(k_start, k_end, device=Q.device)[None, :]
+            scores = (q @ k.transpose(-2, -1)) * scale
+            if is_causal:
+                scores = scores.masked_fill(k_pos > q_pos, -torch.inf)
+            p = torch.exp(scores - l.unsqueeze(-1))
+            dp = do @ v.transpose(-2, -1)
+            ds = p * (dp - delta.unsqueeze(-1))
+            dV[:, k_start:k_end, :] += p.transpose(-2, -1) @ do
+            dQ[:, q_start:q_end, :] += (ds @ k) * scale
+            dK[:, k_start:k_end, :] += (ds.transpose(-2, -1) @ q) * scale
+    return dQ.to(Q.dtype), dK.to(K.dtype), dV.to(V.dtype)
+
+
+_compiled_hybrid_backward = torch.compile(_hybrid_backward_impl)
 
 
 def _select_backward_tile_config(N_Q, N_K, D, dtype):
@@ -317,7 +355,5 @@ class FlashAttention_Triton_CompiledBackward(torch.autograd.Function):
         Q, K, V, O, L = ctx.saved_tensors
         # Run the compiled PyTorch backward in FP32 for BF16 inputs, then
         # return gradients in the original input dtype.
-        dQ, dK, dV = compiled_backward(
-            Q.float(), K.float(), V.float(), O.float(), L.float(), dO.float(), ctx.is_causal
-        )
-        return dQ.to(Q.dtype), dK.to(K.dtype), dV.to(V.dtype), None
+        dQ, dK, dV = _compiled_hybrid_backward(Q, K, V, O, L, dO, ctx.is_causal)
+        return dQ, dK, dV, None
