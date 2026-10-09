@@ -6,6 +6,17 @@ import triton.language as tl
 from cs336_systems.flashattention_torch import compiled_backward
 
 
+def _select_backward_tile_config(N_Q, N_K, D, dtype):
+    """Choose (BLOCK_Q, BLOCK_K, num_warps, num_stages) for FA2 backward."""
+    # H800 sweeps over sequence lengths 128..65536 favored these D=128 layouts.
+    if D == 128 and dtype == torch.bfloat16:
+        return 64, 32, 8, 3
+    if D == 128 and dtype == torch.float32:
+        return 32, 64, 8, 1
+    needs_small_k_tile = dtype == torch.float32 and D >= 128
+    return 32, (32 if needs_small_k_tile else 64), 4, (1 if needs_small_k_tile else 3)
+
+
 @triton.jit
 def flash_fwd_kernel(
     Q_ptr, K_ptr, V_ptr, O_ptr, L_ptr,
@@ -247,10 +258,9 @@ class FlashAttention_Triton(torch.autograd.Function):
         B, N_Q, D = Q.shape
         N_K = K.shape[1]
 
-        BLOCK_Q = 32
-        needs_small_k_tile = Q.dtype == torch.float32 and D >= 128
-        BLOCK_K = 32 if needs_small_k_tile else 64
-        num_stages = 1 if needs_small_k_tile else 3
+        BLOCK_Q, BLOCK_K, num_warps, num_stages = _select_backward_tile_config(
+            N_Q, N_K, D, Q.dtype
+        )
         BLOCK_D = triton.next_power_of_2(D)
 
         dQ = torch.empty_like(Q)
@@ -271,7 +281,7 @@ class FlashAttention_Triton(torch.autograd.Function):
             dQ.stride(0), dQ.stride(1), dQ.stride(2),
             N_Q, N_K, D, 1.0 / math.sqrt(D),
             BLOCK_Q, BLOCK_K, BLOCK_D, ctx.is_causal,
-            num_warps=4,
+            num_warps=num_warps,
             num_stages=num_stages,
         )
         #针对dK,dV的算子
@@ -287,7 +297,7 @@ class FlashAttention_Triton(torch.autograd.Function):
             dV.stride(0), dV.stride(1), dV.stride(2),
             N_Q, N_K, D, 1.0 / math.sqrt(D),
             BLOCK_Q, BLOCK_K, BLOCK_D, ctx.is_causal,
-            num_warps=4,
+            num_warps=num_warps,
             num_stages=num_stages,
         )
 
