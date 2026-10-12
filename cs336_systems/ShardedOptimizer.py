@@ -1,1 +1,85 @@
-import torch\nfrom torch.optim import Optimizer\nimport torch.distributed as dist\nimport copy\n\nclass SharedOptimizer(Optimizer):\n    def __init__(self, params, optimizer_cls, **kwargs):\n        self.rank = dist.get_rank()\n        self.world_size = dist.get_world_size()\n        self.optimizer_cls = optimizer_cls\n        self._optim_defaults = kwargs.copy()\n        self.initialized = False\n        self._partition_parameters_cache = []\n        super().__init__(params, self._optim_defaults)\n        local_param_groups = self._partition_parameters()[self.rank]\n        self.optim = self.optimizer_cls(local_param_groups,**self._optim_defaults,)\n        self.initialized = True\n\n    def _partition_parameters(self):\n        if len(self._partition_parameters_cache) == 0:\n            self._partition_parameters_cache = [[] for _ in range(self.world_size)]\n            sizes = [0] * self.world_size\n            #为cache添加参数组\n            for param_group in self.param_groups:\n                params_per_rank_in_group = [\n                [] for _ in range(self.world_size)\n                ]\n                #从大到小排参数量然后分配给rank\n                params_sorted = sorted(\n                param_group["params"],\n                key=lambda param: param.numel(),\n                reverse=True,\n            )\n                for param in params_sorted:\n                    rank = self._get_min_index(sizes)\n                    params_per_rank_in_group[rank].append(param)\n                    sizes[rank] += param.numel()\n                 #rank得到对应的参数后打超参数标签\n                self._partition_param_group(param_group, params_per_rank_in_group)\n        return self._partition_parameters_cache\n\n\n    def _get_min_index(self, values):\n        min_index = -1\n        min_value = float("inf")\n        for i, value in enumerate(values):\n            if value < min_value:\n                min_value = value\n                min_index = i\n        return min_index\n\n    def _partition_param_group(self, param_group, params_per_rank_in_group):\n        for rank, params in enumerate(params_per_rank_in_group):\n            rank_param_group = copy.copy(param_group)\n            rank_param_group["params"] = params\n            self._partition_parameters_cache[rank].append(rank_param_group)\n\n    def step(self, closure=None, **kwargs):\n        result = self.optim.step(closure=closure, **kwargs)\n        self._sync_params()\n        return result\n    # 广播更新后的参数\n    def _sync_params(self):\n        handles = []\n        param_groups = self._partition_parameters()\n        for src_rank in range(self.world_size):\n            for group in param_groups[src_rank]:\n                handles.extend(\n                    dist.broadcast(\n                        tensor = param.data,\n                        src = src_rank,\n                        async_op = True,)\n                    for param in group["params"]\n                )\n        for handle in handles:\n            handle.wait()\n\n    def add_param_group(self, param_group):\n        super().add_param_group(param_group)\n\n        if self.initialized:\n            self._partition_parameters_cache = []\n            rank_param_groups = self._partition_parameters()[self.rank]\n            if len(rank_param_groups) == len(self.optim.param_groups) + 1:\n                self.optim.add_param_group(rank_param_groups[-1])\n
+import torch
+from torch.optim import Optimizer
+import torch.distributed as dist
+import copy
+
+class SharedOptimizer(Optimizer):
+    def __init__(self, params, optimizer_cls, **kwargs):
+        self.rank = dist.get_rank()
+        self.world_size = dist.get_world_size()
+        self.optimizer_cls = optimizer_cls
+        self._optim_defaults = kwargs.copy()
+        self.initialized = False
+        self._partition_parameters_cache = []
+        super().__init__(params, self._optim_defaults)
+        local_param_groups = self._partition_parameters()[self.rank]
+        self.optim = self.optimizer_cls(local_param_groups,**self._optim_defaults,)
+        self.initialized = True
+
+    def _partition_parameters(self):
+        if len(self._partition_parameters_cache) == 0:
+            self._partition_parameters_cache = [[] for _ in range(self.world_size)]
+            sizes = [0] * self.world_size
+            #为cache添加参数组
+            for param_group in self.param_groups:
+                params_per_rank_in_group = [
+                [] for _ in range(self.world_size)
+                ]
+                #从大到小排参数量然后分配给rank
+                params_sorted = sorted(
+                param_group["params"],
+                key=lambda param: param.numel(),
+                reverse=True,
+            )
+                for param in params_sorted:
+                    rank = self._get_min_index(sizes)
+                    params_per_rank_in_group[rank].append(param)
+                    sizes[rank] += param.numel()
+                 #rank得到对应的参数后打超参数标签
+                self._partition_param_group(param_group, params_per_rank_in_group)
+        return self._partition_parameters_cache
+
+
+    def _get_min_index(self, values):
+        min_index = -1
+        min_value = float("inf")
+        for i, value in enumerate(values):
+            if value < min_value:
+                min_value = value
+                min_index = i
+        return min_index
+
+    def _partition_param_group(self, param_group, params_per_rank_in_group):
+        for rank, params in enumerate(params_per_rank_in_group):
+            rank_param_group = copy.copy(param_group)
+            rank_param_group["params"] = params
+            self._partition_parameters_cache[rank].append(rank_param_group)
+
+    def step(self, closure=None, **kwargs):
+        result = self.optim.step(closure=closure, **kwargs)
+        self._sync_params()
+        return result
+    # 广播更新后的参数
+    def _sync_params(self):
+        handles = []
+        param_groups = self._partition_parameters()
+        for src_rank in range(self.world_size):
+            for group in param_groups[src_rank]:
+                handles.extend(
+                    dist.broadcast(
+                        tensor = param.data,
+                        src = src_rank,
+                        async_op = True,)
+                    for param in group["params"]
+                )
+        for handle in handles:
+            handle.wait()
+
+    def add_param_group(self, param_group):
+        super().add_param_group(param_group)
+
+        if self.initialized:
+            self._partition_parameters_cache = []
+            rank_param_groups = self._partition_parameters()[self.rank]
+            if len(rank_param_groups) == len(self.optim.param_groups) + 1:
+                self.optim.add_param_group(rank_param_groups[-1])
