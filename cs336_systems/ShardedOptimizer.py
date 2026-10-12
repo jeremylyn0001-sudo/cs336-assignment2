@@ -59,7 +59,7 @@ class SharedOptimizer(Optimizer):
         result = self.optim.step(closure=closure, **kwargs)
         self._sync_params()
         return result
-    #广播梯度
+    # 广播更新后的参数
     def _sync_params(self):
         handles = []
         param_groups = self._partition_parameters()
@@ -74,3 +74,12 @@ class SharedOptimizer(Optimizer):
                 )
         for handle in handles:
             handle.wait()
+
+    def add_param_group(self, param_group):
+        super().add_param_group(param_group)
+
+        if self.initialized:
+            self._partition_parameters_cache = []
+            rank_param_groups = self._partition_parameters()[self.rank]
+            if len(rank_param_groups) == len(self.optim.param_groups) + 1:
+                self.optim.add_param_group(rank_param_groups[-1])
