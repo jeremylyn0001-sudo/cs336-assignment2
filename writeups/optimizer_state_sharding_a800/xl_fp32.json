@@ -1,0 +1,126 @@
+{
+  "metadata": {
+    "timestamp_utc": "2026-10-12T07:49:30.144371+00:00",
+    "gpu": "NVIDIA A800-SXM4-80GB",
+    "torch_version": "2.12.1+cu130",
+    "cuda_version": "13.0",
+    "world_size": 2,
+    "model_size": "xl",
+    "model_config": {
+      "d_model": 2560,
+      "d_ff": 10240,
+      "num_layers": 32,
+      "num_heads": 32
+    },
+    "global_batch": 4,
+    "local_batch": 2,
+    "sequence_length": 512,
+    "dtype": "float32",
+    "optimizer": "AdamW defaults",
+    "warmups": 2,
+    "trials": 5,
+    "memory_metric": "torch.cuda.max_memory_allocated/current memory_allocated"
+  },
+  "results": {
+    "baseline": [
+      {
+        "rank": 0,
+        "mode": "baseline",
+        "init_current_mib": 13134.650390625,
+        "init_peak_mib": 13134.650390625,
+        "before_step_current_mib": 26187.53564453125,
+        "before_step_peak_mib": 26469.7802734375,
+        "after_step_current_mib": 52267.80517578125,
+        "after_step_peak_mib": 65392.43994140625,
+        "parameter_bytes": 13627238400,
+        "gradient_bytes": 13627238400,
+        "optimizer_state_bytes": 27254477964,
+        "post_step_unaccounted_bytes": 297811316,
+        "local_optimizer_parameter_count": 3406809600,
+        "step_times_ms": [
+          1536.1218005418777,
+          1544.1387668251991,
+          1536.0944531857967,
+          1536.2500250339508,
+          1536.775927990675
+        ],
+        "mean_step_ms": 1537.8761947154999,
+        "stdev_step_ms": 3.5116707534746694
+      },
+      {
+        "rank": 1,
+        "mode": "baseline",
+        "init_current_mib": 13134.650390625,
+        "init_peak_mib": 13134.650390625,
+        "before_step_current_mib": 26187.53564453125,
+        "before_step_peak_mib": 26469.7802734375,
+        "after_step_current_mib": 52267.80517578125,
+        "after_step_peak_mib": 65392.43994140625,
+        "parameter_bytes": 13627238400,
+        "gradient_bytes": 13627238400,
+        "optimizer_state_bytes": 27254477964,
+        "post_step_unaccounted_bytes": 297811316,
+        "local_optimizer_parameter_count": 3406809600,
+        "step_times_ms": [
+          1536.2820252776146,
+          1544.1189296543598,
+          1536.2415239214897,
+          1536.3605171442032,
+          1536.8947386741638
+        ],
+        "mean_step_ms": 1537.9795469343662,
+        "stdev_step_ms": 3.4421065633498267
+      }
+    ],
+    "sharded": [
+      {
+        "rank": 0,
+        "mode": "sharded",
+        "init_current_mib": 13149.900390625,
+        "init_peak_mib": 13149.900390625,
+        "before_step_current_mib": 26186.53564453125,
+        "before_step_peak_mib": 26468.7802734375,
+        "after_step_current_mib": 39183.18017578125,
+        "after_step_peak_mib": 45704.50244140625,
+        "parameter_bytes": 13627238400,
+        "gradient_bytes": 13627238400,
+        "optimizer_state_bytes": 13627249224,
+        "post_step_unaccounted_bytes": 204816312,
+        "local_optimizer_parameter_count": 1703406080,
+        "step_times_ms": [
+          1540.3129532933235,
+          1547.9265227913857,
+          1547.0515713095665,
+          1547.7348938584328,
+          1547.1100993454456
+        ],
+        "mean_step_ms": 1546.0272081196308,
+        "stdev_step_ms": 3.2170743065971035
+      },
+      {
+        "rank": 1,
+        "mode": "sharded",
+        "init_current_mib": 13149.900390625,
+        "init_peak_mib": 13149.900390625,
+        "before_step_current_mib": 26186.53564453125,
+        "before_step_peak_mib": 26468.7802734375,
+        "after_step_current_mib": 39183.16064453125,
+        "after_step_peak_mib": 45704.47314453125,
+        "parameter_bytes": 13627238400,
+        "gradient_bytes": 13627238400,
+        "optimizer_state_bytes": 13627228740,
+        "post_step_unaccounted_bytes": 204816316,
+        "local_optimizer_parameter_count": 1703403520,
+        "step_times_ms": [
+          1540.3196476399899,
+          1547.4507585167885,
+          1547.1183955669403,
+          1547.260858118534,
+          1547.1491441130638
+        ],
+        "mean_step_ms": 1545.8597607910633,
+        "stdev_step_ms": 3.0997528958412754
+      }
+    ]
+  }
+}
