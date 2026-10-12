@@ -2,6 +2,7 @@ from __future__ import annotations
 from cs336_systems.flashattention_torch import FlashAttention_Pytorch
 from cs336_systems.flashattention_triton import FlashAttention_Triton
 from cs336_systems.DDP import DDP
+from cs336_systems.ShardedOptimizer import SharedOptimizer
 import torch
 
 
@@ -134,4 +135,4 @@ def get_sharded_optimizer(params, optimizer_cls: type[torch.optim.Optimizer], **
     Returns:
         Instance of sharded optimizer.
     """
-    raise NotImplementedError
+    return SharedOptimizer(params, optimizer_cls, **kwargs)
