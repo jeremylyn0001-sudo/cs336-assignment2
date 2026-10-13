@@ -129,6 +129,10 @@ class FSDP(nn.Module):
         self._pending_works: list[
             tuple[object | None, nn.Parameter, torch.Tensor, torch.Tensor, bool]
         ] = []
+        self._forward_handles: list[_ParamHandle] = []
+        self._prefetched_gathers: dict[
+            int, tuple[object, list[torch.Tensor], torch.Tensor]
+        ] = {}
         self._hook_handles = []
 
         self._init_param_handles()
@@ -186,6 +190,8 @@ class FSDP(nn.Module):
             handle = self._handles_by_module_id.get(id(submodule))
             if handle is None:
                 continue
+            forward_index = len(self._forward_handles)
+            self._forward_handles.append(handle)
             if isinstance(submodule, Linear):
                 def linear_forward(inputs, _module=submodule, _handle=handle, _fsdp=self):
                     return _ShardedLinearFunction.apply(
@@ -201,6 +207,12 @@ class FSDP(nn.Module):
 
                 submodule.forward = embedding_forward
 
+            self._hook_handles.append(
+                submodule.register_forward_hook(
+                    self._make_forward_prefetch_hook(forward_index)
+                )
+            )
+
         sharded_ids = set(self._handles_by_param_id)
         seen_replicated: set[int] = set()
         for param in self.module.parameters():
@@ -213,10 +225,45 @@ class FSDP(nn.Module):
                 )
                 self._hook_handles.append(hook)
 
+    def _make_forward_prefetch_hook(self, forward_index: int):
+        """Prefetch a weight two wrapped layers ahead after this layer ends."""
+        def hook(_module, _inputs, _output):
+            target_index = forward_index + 2
+            if target_index < len(self._forward_handles):
+                self._prefetch_forward_param(self._forward_handles[target_index])
+
+        return hook
+
+    def _prefetch_forward_param(self, handle: _ParamHandle) -> None:
+        """Start an async weight all-gather while the next layer computes."""
+        if self.world_size == 1 or "gloo" in str(
+            dist.get_backend(self.process_group)
+        ).lower():
+            return
+        key = id(handle)
+        if key in self._prefetched_gathers:
+            return
+        shard = handle.parameter.detach().contiguous()
+        dtype = self.compute_dtype
+        if dtype is not None and shard.dtype != dtype:
+            shard = shard.to(dtype)
+        shards = [torch.empty_like(shard) for _ in range(self.world_size)]
+        work = dist.all_gather(
+            shards, shard, group=self.process_group, async_op=True
+        )
+        self._prefetched_gathers[key] = (work, shards, shard)
+
     def _all_gather_param(
         self, handle: _ParamHandle, dtype: torch.dtype | None = None
     ) -> torch.Tensor:
         """Reconstruct one full parameter temporarily on every rank."""
+        prefetched = self._prefetched_gathers.pop(id(handle), None)
+        if prefetched is not None:
+            work, shards, _local_shard = prefetched
+            work.wait()
+            flat = torch.cat(shards, dim=0)[: handle.numel]
+            return flat.view(handle.shape)
+
         shard = handle.parameter.detach().contiguous()
         if dtype is not None and shard.dtype != dtype:
             shard = shard.to(dtype)
@@ -314,4 +361,10 @@ class FSDP(nn.Module):
         return full_params
 
     def forward(self, *args, **kwargs):
+        if self._prefetched_gathers:
+            raise RuntimeError("A previous forward left unused FSDP weight prefetches")
+        if self._forward_handles:
+            self._prefetch_forward_param(self._forward_handles[0])
+        if len(self._forward_handles) > 1:
+            self._prefetch_forward_param(self._forward_handles[1])
         return self.module(*args, **kwargs)
