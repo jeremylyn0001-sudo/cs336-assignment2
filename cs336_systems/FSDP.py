@@ -65,8 +65,10 @@ class _ShardedLinearFunction(torch.autograd.Function):
             grad_output.reshape(-1, out_features).transpose(0, 1),
             inputs.to(dtype).reshape(-1, in_features),
         )
-        grad_shard = fsdp._reduce_scatter_param_grad(handle, grad_weight)
-        return grad_input, grad_shard, None, None
+        fsdp._reduce_scatter_param_grad(handle, grad_weight)
+        # FSDP assigns the shard gradient after its asynchronous collective has
+        # completed; returning it here would let autograd consume it too early.
+        return grad_input, None, None, None
 
 
 class _ShardedEmbeddingFunction(torch.autograd.Function):
@@ -93,8 +95,8 @@ class _ShardedEmbeddingFunction(torch.autograd.Function):
             -1,  # no padding index
             False,  # scale_grad_by_freq
         )
-        grad_shard = ctx.fsdp._reduce_scatter_param_grad(handle, grad_full)
-        return None, grad_shard, None, None
+        ctx.fsdp._reduce_scatter_param_grad(handle, grad_full)
+        return None, None, None, None
 
 
 class FSDP(nn.Module):
@@ -122,11 +124,10 @@ class FSDP(nn.Module):
         self._param_handles: list[_ParamHandle] = []
         self._handles_by_param_id: dict[int, _ParamHandle] = {}
         self._handles_by_module_id: dict[int, _ParamHandle] = {}
-        # Keep collective buffers alive until their asynchronous Work completes.
-        # In particular, reduce-scatter's flattened input is a temporary tensor
-        # and may otherwise be reclaimed before NCCL has consumed it.
+        # Each entry is (Work, parameter, input buffer, result buffer,
+        # assign_result_as_parameter_grad). Keep buffers alive until Work ends.
         self._pending_works: list[
-            tuple[object, nn.Parameter, torch.Tensor, torch.Tensor]
+            tuple[object | None, nn.Parameter, torch.Tensor, torch.Tensor, bool]
         ] = []
         self._hook_handles = []
 
@@ -229,13 +230,17 @@ class FSDP(nn.Module):
 
     def _reduce_scatter_param_grad(
         self, handle: _ParamHandle, grad_full: torch.Tensor
-    ) -> torch.Tensor:
-        """Reduce a full gradient and return this rank's averaged shard."""
+    ) -> None:
+        """Reduce a full gradient and queue this rank's averaged shard."""
         grad_flat = grad_full.detach().to(torch.float32).contiguous().view(-1)
         if handle.padding:
             grad_flat = F.pad(grad_flat, (0, handle.padding))
         if self.world_size == 1:
-            return grad_flat[: handle.numel].clone()
+            local_grad = grad_flat[: handle.numel].clone()
+            self._pending_works.append(
+                (None, handle.parameter, grad_flat, local_grad, True)
+            )
+            return
 
         # Gloo is used by the official correctness tests. Use all-reduce plus
         # local slicing there; NCCL uses the actual reduce-scatter collective.
@@ -244,7 +249,10 @@ class FSDP(nn.Module):
             dist.all_reduce(grad_flat, op=dist.ReduceOp.SUM, group=self.process_group)
             start = self.rank * handle.shard_numel
             local_grad = grad_flat.narrow(0, start, handle.shard_numel).clone()
-            return local_grad.div_(self.world_size)
+            self._pending_works.append(
+                (None, handle.parameter, grad_flat, local_grad, True)
+            )
+            return
 
         local_grad = torch.empty(
             handle.shard_numel, device=grad_flat.device, dtype=grad_flat.dtype
@@ -256,8 +264,9 @@ class FSDP(nn.Module):
             group=self.process_group,
             async_op=True,
         )
-        self._pending_works.append((work, handle.parameter, grad_flat, local_grad))
-        return local_grad
+        self._pending_works.append(
+            (work, handle.parameter, grad_flat, local_grad, True)
+        )
 
     def _sync_replicated_gradient(self, param: nn.Parameter) -> None:
         """Average gradients for non-sharded parameters such as RMSNorm gains."""
@@ -274,13 +283,21 @@ class FSDP(nn.Module):
             group=self.process_group,
             async_op=True,
         )
-        self._pending_works.append((work, param, param.grad, param.grad))
+        self._pending_works.append((work, param, param.grad, param.grad, False))
 
     def finish_gradient_synchronization(self) -> None:
         """Wait for asynchronous NCCL gradient collectives before optimizer.step()."""
         pending, self._pending_works = self._pending_works, []
-        for work, param, _input_buffer, _output_buffer in pending:
-            work.wait()
+        for work, param, _input_buffer, output_buffer, assign_result_as_grad in pending:
+            if work is not None:
+                work.wait()
+            if assign_result_as_grad:
+                output_buffer.div_(self.world_size)
+                if param.grad is None:
+                    param.grad = output_buffer
+                else:
+                    param.grad.add_(output_buffer)
+                continue
             if param.grad is None:
                 raise RuntimeError(f"Missing synchronized gradient for {param.shape}")
             param.grad.div_(self.world_size)
