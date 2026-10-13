@@ -122,8 +122,12 @@ class FSDP(nn.Module):
         self._param_handles: list[_ParamHandle] = []
         self._handles_by_param_id: dict[int, _ParamHandle] = {}
         self._handles_by_module_id: dict[int, _ParamHandle] = {}
-        # Each entry is (async Work, parameter whose grad is being synchronized).
-        self._pending_works: list[tuple[object, nn.Parameter]] = []
+        # Keep collective buffers alive until their asynchronous Work completes.
+        # In particular, reduce-scatter's flattened input is a temporary tensor
+        # and may otherwise be reclaimed before NCCL has consumed it.
+        self._pending_works: list[
+            tuple[object, nn.Parameter, torch.Tensor, torch.Tensor]
+        ] = []
         self._hook_handles = []
 
         self._init_param_handles()
@@ -252,7 +256,7 @@ class FSDP(nn.Module):
             group=self.process_group,
             async_op=True,
         )
-        self._pending_works.append((work, handle.parameter))
+        self._pending_works.append((work, handle.parameter, grad_flat, local_grad))
         return local_grad
 
     def _sync_replicated_gradient(self, param: nn.Parameter) -> None:
@@ -270,12 +274,12 @@ class FSDP(nn.Module):
             group=self.process_group,
             async_op=True,
         )
-        self._pending_works.append((work, param))
+        self._pending_works.append((work, param, param.grad, param.grad))
 
     def finish_gradient_synchronization(self) -> None:
         """Wait for asynchronous NCCL gradient collectives before optimizer.step()."""
         pending, self._pending_works = self._pending_works, []
-        for work, param in pending:
+        for work, param, _input_buffer, _output_buffer in pending:
             work.wait()
             if param.grad is None:
                 raise RuntimeError(f"Missing synchronized gradient for {param.shape}")
