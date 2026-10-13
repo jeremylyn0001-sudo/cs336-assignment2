@@ -1,0 +1,22 @@
+[
+  {
+    "pid": 15776,
+    "gpu": 0,
+    "forward_ms": 228.850604,
+    "all_gather_union_ms": 167.567276,
+    "gemm_union_ms": 101.873802,
+    "all_gather_gemm_overlap_ms": 56.686705,
+    "all_gather_overlap_percent": 33.829221524135775,
+    "reduce_scatter_union_ms": 0.0
+  },
+  {
+    "pid": 15777,
+    "gpu": 1,
+    "forward_ms": 228.923587,
+    "all_gather_union_ms": 167.954684,
+    "gemm_union_ms": 102.125492,
+    "all_gather_gemm_overlap_ms": 56.778454,
+    "all_gather_overlap_percent": 33.80581752635133,
+    "reduce_scatter_union_ms": 0.0
+  }
+]

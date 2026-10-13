@@ -1,0 +1,42 @@
+[
+  {
+    "rank": 0,
+    "gpu": "NVIDIA RTX 6000D",
+    "parameter_bytes": 13627238400,
+    "gradient_bytes": 13627238400,
+    "optimizer_state_tensor_bytes": 27254477964,
+    "memory_after_init_bytes": 27399972864,
+    "peak_forward_backward_bytes": 41432939520,
+    "allocated_before_optimizer_step_bytes": 41136624128,
+    "peak_optimizer_step_bytes": 82212030464,
+    "allocated_after_step_bytes": 68449853440,
+    "step_timings_ms": [
+      941.0536689683795,
+      940.423616906628,
+      933.143958915025,
+      931.5790089312941,
+      937.0892909355462
+    ],
+    "mean_step_ms": 936.6579089313745
+  },
+  {
+    "rank": 1,
+    "gpu": "NVIDIA RTX 6000D",
+    "parameter_bytes": 13627238400,
+    "gradient_bytes": 13627238400,
+    "optimizer_state_tensor_bytes": 27254477964,
+    "memory_after_init_bytes": 27399972864,
+    "peak_forward_backward_bytes": 41432939520,
+    "allocated_before_optimizer_step_bytes": 41136624128,
+    "peak_optimizer_step_bytes": 82212030464,
+    "allocated_after_step_bytes": 68449853440,
+    "step_timings_ms": [
+      941.288952017203,
+      940.2676490135491,
+      933.2171219866723,
+      931.5460850484669,
+      936.9451170787215
+    ],
+    "mean_step_ms": 936.6529850289226
+  }
+]

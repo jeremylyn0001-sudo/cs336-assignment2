@@ -1,0 +1,22 @@
+{
+  "gpu": "2x NVIDIA RTX 6000D",
+  "pytorch": "2.12.1+cu130",
+  "official_suite": {
+    "command": "python -m pytest tests/test_fsdp.py -q",
+    "backend": "Gloo",
+    "consecutive_runs": 5,
+    "cases_per_run": 4,
+    "case_runs_passed": 20,
+    "case_runs_failed": 0
+  },
+  "nccl_gradient_comparison": {
+    "world_size": 2,
+    "all_sharded_gradient_slices_close_to_baseline": true,
+    "largest_absolute_error": 4.4703484e-8
+  },
+  "nccl_training_smoke": {
+    "world_size": 2,
+    "sgd_steps": 3,
+    "full_parameters_match_baseline_after_each_step": true
+  }
+}
