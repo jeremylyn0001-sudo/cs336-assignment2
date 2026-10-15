@@ -2,7 +2,7 @@
 
 这里整理了 Assignment 1 和 Assignment 2 作业手册中适合推导、计算或解释的题目。本文是练习清单，不提供答案。你先在前端尝试作答，我会逐题检查推理；订正后再整理成最终 writeup。
 
-打开交互页面 [`math_practice.html`](math_practice.html) 可以逐题作答、保存草稿和标记完成。内容保存在当前浏览器的本地存储；换浏览器或设备前，请用“导出我的答案”保存 Markdown 文件。
+打开交互页面 [`math_practice.html`](math_practice.html) 可以逐题作答、保存草稿和标记完成；公式通过 MathJax 排版，需要浏览器能访问 jsDelivr。若公式库加载失败，页面会保留原始 LaTeX。内容保存在当前浏览器的本地存储；换浏览器或设备前，请用“导出我的答案”保存 Markdown 文件。
 
 ## Assignment 1
 

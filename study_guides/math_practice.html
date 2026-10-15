@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,6 +33,10 @@
     h2 { margin:12px 0 3px; line-height:1.25; font-size:clamp(1.35rem,3vw,1.85rem); }
     #source { color:var(--muted); margin:0 0 18px; font-size:.92rem; }
     #prompt { white-space:pre-wrap; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:18px 0; }
+    .math-block { margin:16px 0; padding:16px 18px; overflow-x:auto; background:#f6f9ff; border:1px solid #dbe6fb; border-radius:10px; font-size:1.05rem; }
+    .math-block:empty { display:none; }
+    .math-block mjx-container[display="true"] { margin:.55em 0 !important; }
+    .math-note { color:var(--muted); font-size:.82rem; margin:5px 0 0; }
     label { display:block; font-weight:650; margin:18px 0 7px; }
     textarea { width:100%; min-height:210px; resize:vertical; border:1px solid #aebdca; border-radius:9px; padding:12px; font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--ink); }
     textarea:focus { outline:3px solid #d7e5ff; border-color:var(--blue); }
@@ -67,6 +71,8 @@
       <h2 id="title"></h2>
       <p id="source"></p>
       <div id="prompt"></div>
+      <div id="formula" class="math-block" aria-label="题目公式"></div>
+      <p class="math-note">公式会自动排版；若网络阻止公式库加载，这里会显示原始 LaTeX。</p>
       <label for="answer">我的解答</label>
       <textarea id="answer" placeholder="写下公式、假设和推导过程……"></textarea>
       <div class="actions">
@@ -79,6 +85,14 @@
       <div class="nav"><button id="prev">← 上一题</button><button id="next">下一题 →</button></div>
     </section>
   </main>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+    chtml: { scale: 1.08 },
+    options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <script>
 const exercises = [
   {id:"a1-1",a:"A1",title:"参数量与权重存储",source:"Assignment 1 · Transformer accounting · §3.5",prompt:"作业中的 GPT-2 XL 风格模型：词表 50,257；上下文长度 1,024；48 层；d_model=1,600；25 个头；d_ff=4,288。计算可训练参数量和 FP32 权重存储量。说明是否假设输入/输出 embedding 共享权重，并列出忽略的结构项。"},
@@ -100,6 +114,109 @@ const exercises = [
   {id:"a2-10",a:"A2",title:"FSDP + TP 二维并行",source:"Assignment 2 · 2D parallelism · §8.5",prompt:"总卡数 N=N_FSDP×N_TP。推导每卡前向 FLOPs 与两个 mesh 方向的通信时间。先假设两个方向的通信可重叠，用 max 表示并优化切分；再假设网络资源共享、通信不能重叠，求最大 compute-bound 卡数。"},
   {id:"a2-11",a:"A2",title:"DDP、ZeRO-1、FSDP 显存",source:"Assignment 2 · Optimizer/FSDP accounting · §§6–7",prompt:"有 P 个参数、N 张卡、FP32 权重/梯度，每个参数有两个 FP32 Adam moment。推导 DDP、ZeRO-1、FSDP 的每卡持久显存。另计 FSDP 临时 all-gather 单元，并解释为什么 16P/N 不能直接当作训练峰值显存。"},
 ];
+const formulas = {
+  "a1-1": String.raw`\[
+P_{\mathrm{total}}=P_{\mathrm{embedding}}+L(P_{\mathrm{attention}}+P_{\mathrm{FFN}})+P_{\mathrm{final}}+P_{\mathrm{LM\ head}},\qquad
+M_{\mathrm{FP32}}=4P_{\mathrm{total}}\;\text{bytes}.
+\]`,
+  "a1-2": String.raw`\[
+F_{\mathrm{forward}}\approx L\left(8Td^2+6Tdd_{\mathrm{ff}}+4T^2d\right)+2TdV.
+\]`,
+  "a1-3": String.raw`\[
+F_{\mathrm{projections/FFN/LM\ head}}\propto T,\qquad
+F_{\mathrm{attention\ scores+values}}\propto T^2.
+\]`,
+  "a1-4": String.raw`\[
+M_{\mathrm{train}}=M_{\theta}+M_{\nabla}+M_{m,v}+M_{\mathrm{activations}},\qquad
+M_{\theta}+M_{\nabla}+M_{m,v}=16P\;\text{bytes (FP32 AdamW)}.
+\]`,
+  "a1-5": String.raw`\[
+F_{\mathrm{step}}\approx F_{\mathrm{forward}}+F_{\mathrm{backward}}\approx 3F_{\mathrm{forward}},\qquad
+t\approx\frac{N_{\mathrm{steps}}F_{\mathrm{step}}}{\mathrm{MFU}\cdot C_{\mathrm{peak}}}.
+\]`,
+  "a1-6": String.raw`\[
+m=\max_j z_j,\qquad
+\ell=-z_y+m+\log\!\sum_j e^{z_j-m},\qquad
+\mathrm{PPL}=\exp\!\left(\frac{1}{T}\sum_{t=1}^{T}\ell_t\right).
+\]`,
+  "a1-7": String.raw`\[
+m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,\quad
+v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2,\quad
+\alpha_t=\alpha\frac{\sqrt{1-\beta_2^t}}{1-\beta_1^t},\quad
+\theta_t=(1-\alpha\lambda)\theta_{t-1}-\alpha_t\frac{m_t}{\sqrt{v_t}+\epsilon}.
+\]`,
+  "a2-1": String.raw`\[
+\operatorname{ULP}(x)\approx 2^{e-f},\qquad
+\Delta x<\tfrac12\operatorname{ULP}(x)\;\Longrightarrow\;\operatorname{round}(x+\Delta x)=x.
+\]`,
+  "a2-2": String.raw`\[
+M_{\mathrm{peak}}=M_{\mathrm{saved\ checkpoints}}+M_{\mathrm{recomputed\ block}},\qquad
+C_{\mathrm{total}}=C_{\mathrm{forward}}+C_{\mathrm{recomputation}}+C_{\mathrm{backward}}.
+\]`,
+  "a2-3": String.raw`\[
+\begin{aligned}
+\operatorname{shape}(S)=\operatorname{shape}(P)=(B,H,T,T),\qquad
+M_{S+P}=2BHT^2s.\\
+\operatorname{shape}(Q,K,V,O)=(B,H,T,d_h),\qquad
+M_{QKVO}=4BHTd_hs.
+\end{aligned}
+\]`,
+  "a2-4": String.raw`\[
+\begin{aligned}
+m'=\max\!\left(m,\max_j S_j\right),\quad \alpha=e^{m-m'},\quad \widetilde P=e^{S-m'},\\
+l'=\alpha l+\operatorname{rowsum}(\widetilde P),\qquad
+o'=\alpha o+\widetilde P V_{\mathrm{tile}},\qquad O=o'/l'.
+\end{aligned}
+\]`,
+  "a2-5": String.raw`\[
+\begin{aligned}
+D_i=\sum_j O_{ij}\,dO_{ij}=\sum_j P_{ij}\,dP_{ij},\qquad
+P_{ij}=e^{S_{ij}-L_i},\\
+dV=P^{\mathsf T}dO,\quad dP=dO V^{\mathsf T},\quad
+dS=P\odot(dP-D),\\
+dQ=dS K/\sqrt{d_h},\qquad dK=dS^{\mathsf T}Q/\sqrt{d_h}.
+\end{aligned}
+\]`,
+  "a2-6": String.raw`\[
+T_{\mathrm{ring}}=2\frac{N-1}{N}\frac{S}{W},\qquad
+T_{\mathrm{alternate}}=(N-1)\frac{S}{W}.
+\]`,
+  "a2-7": String.raw`\[
+\begin{aligned}
+F_{\mathrm{backward/rank}}=\frac{12BDD_{\mathrm{ff}}}{N_{\mathrm{DP}}},\qquad
+T_{\mathrm{all-reduce}}=\frac{12(N_{\mathrm{DP}}-1)DD_{\mathrm{ff}}}{N_{\mathrm{DP}}W},\\
+N_{\mathrm{DP}}\le 1+\frac{BW}{C}.
+\end{aligned}
+\]`,
+  "a2-8": String.raw`\[
+\begin{aligned}
+F_{\mathrm{forward/rank}}=\frac{6BDD_{\mathrm{ff}}}{N_{\mathrm{FSDP}}},\qquad
+F_{\mathrm{backward/rank}}=\frac{12BDD_{\mathrm{ff}}}{N_{\mathrm{FSDP}}}.\\
+\text{Compute-bound if }T_{\mathrm{comm}}\le T_{\mathrm{compute}}.
+\end{aligned}
+\]`,
+  "a2-9": String.raw`\[
+\begin{aligned}
+W_1^{(i)},W_2^{(i)}\in\mathbb{R}^{D\times D_{\mathrm{ff}}/N_{\mathrm{TP}}},\qquad
+W_3^{(i)}\in\mathbb{R}^{D_{\mathrm{ff}}/N_{\mathrm{TP}}\times D}.\\
+x_1^{(i)}=xW_1^{(i)},\quad x_2^{(i)}=xW_2^{(i)},\quad
+z^{(i)}=f(x_1^{(i)})\odot x_2^{(i)},\quad
+y=\operatorname{all\text{-}reduce}_i(z^{(i)}W_3^{(i)}).
+\end{aligned}
+\]`,
+  "a2-10": String.raw`\[
+\begin{aligned}
+N=N_{\mathrm{FSDP}}N_{\mathrm{TP}},\qquad
+T_{\mathrm{comm,overlap}}=\max(T_{\mathrm{FSDP}},T_{\mathrm{TP}}),\\
+T_{\mathrm{comm,shared\ network}}=T_{\mathrm{FSDP}}+T_{\mathrm{TP}}.
+\end{aligned}
+\]`,
+  "a2-11": String.raw`\[
+M_{\mathrm{DDP}}=16P,\qquad
+M_{\mathrm{ZeRO-1}}=8P+\frac{8P}{N},\qquad
+M_{\mathrm{FSDP,persistent}}=\frac{16P}{N}\quad\text{bytes}.
+\]`
+};
 const key = "cs336-math-practice-v1";
 let state = JSON.parse(localStorage.getItem(key) || "{}");
 let filter = "all";
@@ -121,8 +238,12 @@ function renderList(){
 function show(id){
   current=id; const x=exercises.find(e=>e.id===id); if(!x) return;
   history.replaceState(null,"",`#${id}`);
-  $("counter").textContent=`Exercise ${exercises.indexOf(x)+1} of ${exercises.length}`;
+  $("counter").textContent=`第 ${exercises.indexOf(x)+1} 题 / 共 ${exercises.length} 题`;
   $("tag").textContent=x.a; $("title").textContent=x.title; $("source").textContent=x.source; $("prompt").textContent=x.prompt;
+  const formula=$("formula");
+  if(window.MathJax?.typesetClear) window.MathJax.typesetClear([formula]);
+  formula.innerHTML=formulas[id]||"";
+  if(window.MathJax?.typesetPromise) window.MathJax.typesetPromise([formula]).catch(()=>{});
   $("answer").value=state[id]?.answer||"";
   $("mark").textContent=state[id]?.done?"✓ 已完成（点击撤销）":"标记完成";
   $("saved").textContent=state[id]?.savedAt?`已保存 ${new Date(state[id].savedAt).toLocaleTimeString()}`:"尚未保存";
@@ -143,6 +264,10 @@ $("export").onclick=()=>{
 };
 window.addEventListener("hashchange",()=>show(location.hash.slice(1)));
 renderList(); show(current);
+window.MathJax?.startup?.promise?.then(()=>{
+  const formula=$("formula");
+  if(formula && window.MathJax?.typesetPromise) window.MathJax.typesetPromise([formula]).catch(()=>{});
+});
 </script>
 </body>
 </html>
