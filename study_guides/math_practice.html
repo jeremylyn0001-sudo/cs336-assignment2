@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CS336 A1/A2 数学题练习</title>
+  <style>
+    :root { color-scheme: light; --ink:#172331; --muted:#5f6d7a; --line:#d7dee5; --paper:#fff; --wash:#f3f6f8; --blue:#155eef; --green:#147d54; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header { background:#102a43; color:white; padding:24px max(22px,calc((100vw - 1180px)/2)); }
+    h1 { margin:0 0 4px; font-size:clamp(1.45rem,3vw,2rem); }
+    header p { margin:0; color:#d7e2ec; }
+    main { max-width:1180px; margin:22px auto; padding:0 16px; display:grid; grid-template-columns:300px minmax(0,1fr); gap:18px; }
+    aside,.panel { background:var(--paper); border:1px solid var(--line); border-radius:12px; }
+    aside { padding:14px; align-self:start; position:sticky; top:14px; max-height:calc(100vh - 28px); overflow:auto; }
+    .filters { display:flex; gap:6px; margin:8px 0 12px; }
+    button,select { font:inherit; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); padding:8px 11px; border-radius:8px; cursor:pointer; }
+    button:hover { border-color:#8aa4bd; }
+    button.active { background:#eaf1ff; border-color:#9ab8ff; color:#1649a5; }
+    .filters button { flex:1; padding:6px 4px; }
+    #progress { color:var(--muted); font-size:.9rem; margin:4px 0 12px; }
+    #list { display:grid; gap:5px; }
+    .item { display:flex; width:100%; text-align:left; gap:9px; align-items:flex-start; border:0; background:transparent; padding:8px; }
+    .item.active { background:#eef4ff; }
+    .item.done .item-title::after { content:"  ✓"; color:var(--green); font-weight:700; }
+    .num { color:var(--muted); font-variant-numeric:tabular-nums; min-width:23px; }
+    .item-title { font-size:.91rem; line-height:1.35; }
+    .panel { padding:clamp(18px,4vw,34px); min-height:520px; }
+    .topline { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--muted); font-size:.9rem; }
+    .tag { display:inline-block; color:#1649a5; background:#eef4ff; border-radius:999px; padding:3px 10px; font-size:.82rem; }
+    h2 { margin:12px 0 3px; line-height:1.25; font-size:clamp(1.35rem,3vw,1.85rem); }
+    #source { color:var(--muted); margin:0 0 18px; font-size:.92rem; }
+    #prompt { white-space:pre-wrap; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:18px 0; }
+    label { display:block; font-weight:650; margin:18px 0 7px; }
+    textarea { width:100%; min-height:210px; resize:vertical; border:1px solid #aebdca; border-radius:9px; padding:12px; font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--ink); }
+    textarea:focus { outline:3px solid #d7e5ff; border-color:var(--blue); }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+    .primary { background:var(--blue); color:white; border-color:var(--blue); }
+    .primary:hover { background:#0d4ed8; }
+    .done-btn { color:var(--green); border-color:#8ac6ab; }
+    .hint { color:var(--muted); font-size:.88rem; margin-left:auto; }
+    .nav { display:flex; justify-content:space-between; margin-top:20px; padding-top:14px; border-top:1px solid var(--line); }
+    .notice { background:#fff8e6; border:1px solid #eed99c; border-radius:9px; padding:11px 13px; margin-top:18px; font-size:.9rem; }
+    @media (max-width:760px) { main { grid-template-columns:1fr; } aside { position:static; max-height:none; } #list { grid-template-columns:repeat(2,minmax(0,1fr)); } .item { padding:7px 4px; } .hint { width:100%; margin:0; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CS336 A1/A2 数学题练习</h1>
+    <p>按题推导和计算。本页面提供题目，不提供答案。</p>
+  </header>
+  <main>
+    <aside aria-label="题目导航">
+      <strong>题目导航</strong>
+      <div class="filters" role="group" aria-label="筛选作业">
+        <button data-filter="all" class="active">全部</button>
+        <button data-filter="A1">A1</button>
+        <button data-filter="A2">A2</button>
+      </div>
+      <div id="progress" aria-live="polite"></div>
+      <nav id="list"></nav>
+    </aside>
+    <section class="panel" aria-live="polite">
+      <div class="topline"><span id="counter"></span><span id="tag" class="tag"></span></div>
+      <h2 id="title"></h2>
+      <p id="source"></p>
+      <div id="prompt"></div>
+      <label for="answer">我的解答</label>
+      <textarea id="answer" placeholder="写下公式、假设和推导过程……"></textarea>
+      <div class="actions">
+        <button id="save" class="primary">保存草稿</button>
+        <button id="mark" class="done-btn">标记完成</button>
+        <button id="export">导出我的答案</button>
+        <span class="hint" id="saved" role="status"></span>
+      </div>
+      <div class="notice">草稿和完成状态只保存在当前浏览器。请导出 Markdown 备份，或把答案贴到聊天里让我检查。</div>
+      <div class="nav"><button id="prev">← 上一题</button><button id="next">下一题 →</button></div>
+    </section>
+  </main>
+<script>
+const exercises = [
+  {id:"a1-1",a:"A1",title:"参数量与权重存储",source:"Assignment 1 · Transformer accounting · §3.5",prompt:"作业中的 GPT-2 XL 风格模型：词表 50,257；上下文长度 1,024；48 层；d_model=1,600；25 个头；d_ff=4,288。计算可训练参数量和 FP32 权重存储量。说明是否假设输入/输出 embedding 共享权重，并列出忽略的结构项。"},
+  {id:"a1-2",a:"A1",title:"按模块计算前向 FLOPs",source:"Assignment 1 · Transformer accounting · §3.5",prompt:"对相同 GPT-2 XL 配置及长度 T=1,024 的一个序列，列出主要矩阵乘法并推导前向总 FLOPs。分别统计 Q/K/V/输出投影、注意力 QKᵀ 与 PV、三个 SwiGLU 投影和词表投影。可忽略逐元素运算，但要说明是否计入。"},
+  {id:"a1-3",a:"A1",title:"模型规模和上下文长度缩放",source:"Assignment 1 · Transformer accounting · §3.5",prompt:"比较 GPT-2 Small/Medium/Large/XL 的注意力与 FFN 前向 FLOPs 占比。然后把 XL 上下文从 1,024 增至 16,384。哪些项随上下文长度线性增长，哪些项是二次增长？总 FLOPs 的比例如何变化？写出各模块公式。"},
+  {id:"a1-4",a:"A1",title:"AdamW 训练显存核算",source:"Assignment 1 · AdamW accounting · §4.3",prompt:"假设所有张量都是 FP32。分别推导参数、梯度、AdamW 状态和题目指定激活（norm；注意力投影/分数/softmax/value/output；SwiGLU；最终 norm；词表输出；交叉熵）的显存表达式。代入 GPT-2 XL 化为 a×batch_size+b，求 80 GB 下最大 batch，并写明假设和简化。"},
+  {id:"a1-5",a:"A1",title:"训练 FLOPs 和时长估算",source:"Assignment 1 · AdamW accounting · §4.3",prompt:"推导一次训练步的 FLOPs 表达式，说明反向 FLOPs 如何相对前向计算、是否包含优化器算术。再估算 H100（峰值 495 TFLOP/s、MFU 50%）以 batch 1,024 训练 GPT-2 XL 共 400K 步的时间。明确写出 token、FLOPs、秒和天之间的换算。"},
+  {id:"a1-6",a:"A1",title:"稳定交叉熵与困惑度",source:"Assignment 1 · Cross-entropy · §4.1",prompt:"自选一组短 logits 和目标类别。用减去最大 logit 后的 log-sum-exp 计算交叉熵；再从几个 token loss 计算 perplexity=exp(mean token loss)。解释整体减去最大 logit 为什么不改变 softmax 概率。"},
+  {id:"a1-7",a:"A1",title:"手算一次 AdamW 更新",source:"Assignment 1 · AdamW · §4.3",prompt:"自选标量 θ、梯度 g、初始 m/v（或从 m=v=0 开始）、学习率、β₁/β₂、ε 和 weight decay，手算一到两步。分别写出偏差修正步长、解耦 weight decay、一阶矩、二阶矩和最终参数更新。明确运算顺序。"},
+  {id:"a2-1",a:"A2",title:"混合精度累加",source:"Assignment 2 · Mixed precision · §2.1.5",prompt:"预测用 FP32、FP16 反复加一个小增量，以及 FP16 输入但 FP32 累加时的结果。用尾数精度解释增量何时会消失；再比较 FP16 和 BF16 的指数范围，并解释哪种更容易溢出。"},
+  {id:"a2-2",a:"A2",title:"Checkpoint 显存与重计算",source:"Assignment 2 · Gradient checkpointing · §3.3",prompt:"对顺序堆叠的 N 个 block，比较不做 checkpoint、单层 checkpoint、递归嵌套 checkpoint 的峰值保存激活和重计算量。忽略计算代价时，提出降低峰值内存的嵌套策略并写渐进复杂度。如果只能重算一次，怎样选择 checkpoint block 大小？"},
+  {id:"a2-3",a:"A2",title:"注意力显存复杂度",source:"Assignment 2 · Attention profiling · §4.1",prompt:"对 batch B、头数 H、序列长度 T、每元素 s 字节，推导一个 dense attention score 或 probability 张量的形状和字节数，以及两者都保存时的大小。若 T 翻倍，内存如何变化？与 FlashAttention 保存的 Q/K/V/O/L 形状对比。"},
+  {id:"a2-4",a:"A2",title:"FlashAttention 在线 softmax",source:"Assignment 2 · FlashAttention forward · §4.2.2",prompt:"已处理的 key tile 行状态是 (m_old,l_old,o_old)：m 为运行最大值，l 为缩放后的分母，o 为未归一化的加权 value 累加器。给定新 tile 分数 S_tile 和 value V_tile，推导稳定更新式。全部 tile 处理完后如何恢复归一化输出？"},
+  {id:"a2-5",a:"A2",title:"FlashAttention 反向推导",source:"Assignment 2 · FlashAttention backward · §4.2.2",prompt:"从 O=PV 和上游梯度 dO 出发，推导 D=rowsum(O⊙dO)=rowsum(P⊙dP)。再写出由 Q/K/行级 L 重算 P，以及 dV、dP、dS、dQ、dK 的公式。说明哪个大中间张量是在反向重算而不是保存。"},
+  {id:"a2-6",a:"A2",title:"Ring All-Reduce 通信量",source:"Assignment 2 · Parallelism calculations · §8.1",prompt:"有 N 张卡、张量大小 S 字节、每卡出口带宽 W。推导标准 Ring reduce-scatter + all-gather 每卡传输量和理想耗时；再推导作业中每轮传完整张量的替代算法。取 N=4、S=120 MB 比较两种算法。"},
+  {id:"a2-7",a:"A2",title:"数据并行 FFN 核算",source:"Assignment 2 · Data parallel calculations · §8.2",prompt:"设 x:(B,D)，W₁/W₂:(D,Dff)，W₃:(Dff,D)。列出反向的所有矩阵乘法，并推导 N_DP 下每卡 FLOPs。假设 FP16，求梯度字节数和标准 Ring All-Reduce 时间；比较通信与计算时间，求仍 compute-bound 时 N_DP 上限。"},
+  {id:"a2-8",a:"A2",title:"FSDP FLOPs 与通信",source:"Assignment 2 · FSDP calculations · §8.3",prompt:"在相同 FFN 设定下，推导 N_FSDP 时每卡前向/反向 FLOPs。统计两阶段权重 all-gather 和梯度 reduce-scatter 的通信量与耗时，再与计算时间比较，分别求前向/反向达到通信瓶颈的阈值。"},
+  {id:"a2-9",a:"A2",title:"Tensor Parallel 反向与扩展上限",source:"Assignment 2 · TP calculations · §8.4",prompt:"W₁/W₂ 沿输出维切分，W₃ 沿输入维切分。写出每卡从 dY 到 dX 和本地权重梯度的反向公式，标出 collective。推导前向/反向 FLOPs、通信时间和 N_TP 的 compute-bound 上限。"},
+  {id:"a2-10",a:"A2",title:"FSDP + TP 二维并行",source:"Assignment 2 · 2D parallelism · §8.5",prompt:"总卡数 N=N_FSDP×N_TP。推导每卡前向 FLOPs 与两个 mesh 方向的通信时间。先假设两个方向的通信可重叠，用 max 表示并优化切分；再假设网络资源共享、通信不能重叠，求最大 compute-bound 卡数。"},
+  {id:"a2-11",a:"A2",title:"DDP、ZeRO-1、FSDP 显存",source:"Assignment 2 · Optimizer/FSDP accounting · §§6–7",prompt:"有 P 个参数、N 张卡、FP32 权重/梯度，每个参数有两个 FP32 Adam moment。推导 DDP、ZeRO-1、FSDP 的每卡持久显存。另计 FSDP 临时 all-gather 单元，并解释为什么 16P/N 不能直接当作训练峰值显存。"},
+];
+const key = "cs336-math-practice-v1";
+let state = JSON.parse(localStorage.getItem(key) || "{}");
+let filter = "all";
+let current = location.hash.slice(1) || exercises[0].id;
+const $ = (id) => document.getElementById(id);
+const visible = () => exercises.filter(x => filter === "all" || x.a === filter);
+function saveState(){ localStorage.setItem(key, JSON.stringify(state)); }
+function renderList(){
+  const list = $("list"); list.replaceChildren();
+  visible().forEach((x,i) => {
+    const b=document.createElement("button"); b.className="item"+(x.id===current?" active":"")+(state[x.id]?.done?" done":"");
+    const n=document.createElement("span"); n.className="num"; n.textContent=String(exercises.indexOf(x)+1).padStart(2,"0");
+    const t=document.createElement("span"); t.className="item-title"; t.textContent=x.title;
+    b.append(n,t); b.onclick=()=>show(x.id); list.append(b);
+  });
+  const done=exercises.filter(x=>state[x.id]?.done).length;
+  $("progress").textContent=`已完成 ${done} / ${exercises.length} 题 · 还有 ${exercises.length-done} 题`;
+}
+function show(id){
+  current=id; const x=exercises.find(e=>e.id===id); if(!x) return;
+  history.replaceState(null,"",`#${id}`);
+  $("counter").textContent=`Exercise ${exercises.indexOf(x)+1} of ${exercises.length}`;
+  $("tag").textContent=x.a; $("title").textContent=x.title; $("source").textContent=x.source; $("prompt").textContent=x.prompt;
+  $("answer").value=state[id]?.answer||"";
+  $("mark").textContent=state[id]?.done?"✓ 已完成（点击撤销）":"标记完成";
+  $("saved").textContent=state[id]?.savedAt?`已保存 ${new Date(state[id].savedAt).toLocaleTimeString()}`:"尚未保存";
+  $("prev").disabled=exercises.indexOf(x)===0; $("next").disabled=exercises.indexOf(x)===exercises.length-1;
+  renderList();
+}
+function persist(){ const old=state[current]||{}; state[current]={...old,answer:$("answer").value,savedAt:Date.now()}; saveState(); $("saved").textContent=`已保存 ${new Date(state[current].savedAt).toLocaleTimeString()}`; renderList(); }
+$("answer").addEventListener("input",()=>{ clearTimeout(window.saveTimer); window.saveTimer=setTimeout(persist,350); });
+$("save").onclick=persist;
+$("mark").onclick=()=>{ persist(); state[current].done=!state[current].done; saveState(); show(current); };
+$("prev").onclick=()=>{ const i=exercises.findIndex(x=>x.id===current); if(i>0) show(exercises[i-1].id); };
+$("next").onclick=()=>{ const i=exercises.findIndex(x=>x.id===current); if(i<exercises.length-1) show(exercises[i+1].id); };
+document.querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));renderList();});
+$("export").onclick=()=>{
+  persist();
+  const md=exercises.map((x,i)=>`## ${i+1}. ${x.a}：${x.title}\n\n_题目位置：${x.source}_\n\n${x.prompt}\n\n### 我的解答${state[x.id]?.done?"（已标记完成）":""}\n\n${state[x.id]?.answer||"_（尚未作答）_"}\n`).join("\n---\n\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([`# 我的 CS336 A1/A2 数学练习\n\n${md}`],{type:"text/markdown"}));a.download="cs336_math_practice_answers.md";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+window.addEventListener("hashchange",()=>show(location.hash.slice(1)));
+renderList(); show(current);
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+[
+  {
+    "hardware": "NVIDIA H20",
+    "rank": 0,
+    "world_size": 2,
+    "config": {
+      "seq_len": 32768,
+      "batch_size": 2,
+      "vocab_size": 151936,
+      "d_model": 4096,
+      "d_ff": 11008,
+      "layers": 34,
+      "heads": 32,
+      "warmups": 1,
+      "trials": 3,
+      "checkpoint": true,
+      "loss_chunk_tokens": 1024,
+      "output": "leaderboard_results/leaderboard_h20_2gpu.json"
+    },
+    "first_step_seconds_including_triton_jit": 122.64912094920874,
+    "first_step_loss": 11.957528114318848,
+    "memory_after_init_bytes": 16822345728,
+    "peak_first_step_bytes": 81895039488,
+    "steady_step_seconds": [
+      121.187002774328,
+      121.18142175674438,
+      121.17400727421045
+    ],
+    "mean_step_seconds": 121.18081060176094
+  },
+  {
+    "hardware": "NVIDIA H20",
+    "rank": 1,
+    "world_size": 2,
+    "config": {
+      "seq_len": 32768,
+      "batch_size": 2,
+      "vocab_size": 151936,
+      "d_model": 4096,
+      "d_ff": 11008,
+      "layers": 34,
+      "heads": 32,
+      "warmups": 1,
+      "trials": 3,
+      "checkpoint": true,
+      "loss_chunk_tokens": 1024,
+      "output": "leaderboard_results/leaderboard_h20_2gpu.json"
+    },
+    "first_step_seconds_including_triton_jit": 122.65932622551918,
+    "first_step_loss": 11.955575942993164,
+    "memory_after_init_bytes": 16822345728,
+    "peak_first_step_bytes": 81895039488,
+    "steady_step_seconds": [
+      121.18631272390485,
+      121.18068996444345,
+      121.17326423898339
+    ],
+    "mean_step_seconds": 121.18008897577722
+  }
+]

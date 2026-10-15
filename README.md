@@ -63,3 +63,8 @@ To submit, run `./test_and_make_submission.sh` . This script will install your
 code's dependencies, run tests, and create a gzipped tarball with the output. We
 should be able to unzip your submitted tarball and run
 `./test_and_make_submission.sh` to verify your test results.
+
+## Personal lab notes
+
+- [Assignment 1/2 math practice](./study_guides/a1_a2_math_practice.md), with an [interactive answer page](./study_guides/math_practice.html). The prompts are practice material and do not include answers.
+- [Experiment and writeup index](./writeups/README.md), including the [2×H20 leaderboard-workload measurement](./writeups/leaderboard_h20_20261015/README.md). This substitute-hardware timing is not a B200 leaderboard score.
