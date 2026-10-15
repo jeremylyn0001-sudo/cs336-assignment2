@@ -33,7 +33,11 @@
     h2 { margin:12px 0 3px; line-height:1.25; font-size:clamp(1.35rem,3vw,1.85rem); }
     #source { color:var(--muted); margin:0 0 18px; font-size:.92rem; }
     #prompt { white-space:pre-wrap; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:18px 0; }
-    .math-block { margin:16px 0; padding:16px 18px; overflow-x:auto; background:#f6f9ff; border:1px solid #dbe6fb; border-radius:10px; font-size:1.05rem; }
+    .reference-card { margin:16px 0; padding:12px 16px; background:#f6f9ff; border:1px solid #dbe6fb; border-radius:10px; }
+    .reference-heading { display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:#1649a5; font-size:.9rem; }
+    .reference-heading span { padding:2px 8px; background:#e7efff; border-radius:999px; }
+    #reference-note { margin-top:8px; }
+    .math-block { margin:10px 0 0; overflow-x:auto; font-size:1.05rem; }
     .math-block:empty { display:none; }
     .math-block mjx-container[display="true"] { margin:.55em 0 !important; }
     .math-note { color:var(--muted); font-size:.82rem; margin:5px 0 0; }
@@ -71,8 +75,12 @@
       <h2 id="title"></h2>
       <p id="source"></p>
       <div id="prompt"></div>
-      <div id="formula" class="math-block" aria-label="题目公式"></div>
-      <p class="math-note">公式会自动排版；若网络阻止公式库加载，这里会显示原始 LaTeX。</p>
+      <section class="reference-card" aria-label="官方给定公式和已知条件">
+        <div class="reference-heading"><span>官方给定 / 已知条件</span><strong id="reference-title"></strong></div>
+        <div id="reference-note"></div>
+        <div id="formula" class="math-block" aria-label="官方给定公式"></div>
+        <p class="math-note">公式由 MathJax 排版；若公式库加载失败，原始 LaTeX 仍会显示。</p>
+      </section>
       <label for="answer">我的解答</label>
       <textarea id="answer" placeholder="写下公式、假设和推导过程……"></textarea>
       <div class="actions">
@@ -114,108 +122,83 @@ const exercises = [
   {id:"a2-10",a:"A2",title:"FSDP + TP 二维并行",source:"Assignment 2 · 2D parallelism · §8.5",prompt:"总卡数 N=N_FSDP×N_TP。推导每卡前向 FLOPs 与两个 mesh 方向的通信时间。先假设两个方向的通信可重叠，用 max 表示并优化切分；再假设网络资源共享、通信不能重叠，求最大 compute-bound 卡数。"},
   {id:"a2-11",a:"A2",title:"DDP、ZeRO-1、FSDP 显存",source:"Assignment 2 · Optimizer/FSDP accounting · §§6–7",prompt:"有 P 个参数、N 张卡、FP32 权重/梯度，每个参数有两个 FP32 Adam moment。推导 DDP、ZeRO-1、FSDP 的每卡持久显存。另计 FSDP 临时 all-gather 单元，并解释为什么 16P/N 不能直接当作训练峰值显存。"},
 ];
-const formulas = {
-  "a1-1": String.raw`\[
-P_{\mathrm{total}}=P_{\mathrm{embedding}}+L(P_{\mathrm{attention}}+P_{\mathrm{FFN}})+P_{\mathrm{final}}+P_{\mathrm{LM\ head}},\qquad
-M_{\mathrm{FP32}}=4P_{\mathrm{total}}\;\text{bytes}.
-\]`,
-  "a1-2": String.raw`\[
-F_{\mathrm{forward}}\approx L\left(8Td^2+6Tdd_{\mathrm{ff}}+4T^2d\right)+2TdV.
-\]`,
-  "a1-3": String.raw`\[
-F_{\mathrm{projections/FFN/LM\ head}}\propto T,\qquad
-F_{\mathrm{attention\ scores+values}}\propto T^2.
-\]`,
-  "a1-4": String.raw`\[
-M_{\mathrm{train}}=M_{\theta}+M_{\nabla}+M_{m,v}+M_{\mathrm{activations}},\qquad
-M_{\theta}+M_{\nabla}+M_{m,v}=16P\;\text{bytes (FP32 AdamW)}.
-\]`,
-  "a1-5": String.raw`\[
-F_{\mathrm{step}}\approx F_{\mathrm{forward}}+F_{\mathrm{backward}}\approx 3F_{\mathrm{forward}},\qquad
-t\approx\frac{N_{\mathrm{steps}}F_{\mathrm{step}}}{\mathrm{MFU}\cdot C_{\mathrm{peak}}}.
-\]`,
-  "a1-6": String.raw`\[
-m=\max_j z_j,\qquad
-\ell=-z_y+m+\log\!\sum_j e^{z_j-m},\qquad
-\mathrm{PPL}=\exp\!\left(\frac{1}{T}\sum_{t=1}^{T}\ell_t\right).
-\]`,
-  "a1-7": String.raw`\[
+const references = {
+  "a1-1": {title:"官方给定：GPT-2 XL 配置", text:"词表 50,257；上下文长度 1,024；48 层；d_model=1,600；25 个头；d_ff=4,288。输入 embedding 和 LM head 是否共享，按题目说明处理。"},
+  "a1-2": {title:"官方给定：矩阵乘法 FLOPs 规则", tex:String.raw`\[
+A\in\mathbb{R}^{m\times n},\quad B\in\mathbb{R}^{n\times p}
+\quad\Longrightarrow\quad \operatorname{FLOPs}(AB)=2mnp.
+\]`},
+  "a1-3": {title:"官方给定：各型号配置", text:"Small：(L=12, d=768, H=12)；Medium：(24, 1,024, 16)；Large：(36, 1,280, 20)；XL：(48, 1,600, 25)。XL 的 context_length 从 1,024 改到 16,384。"},
+  "a1-4": {title:"官方给定：精度与 FFN 假设", tex:String.raw`\[
+\text{每个 FP32 元素占 4 bytes},\qquad d_{\mathrm{ff}}=\frac{8}{3}d_{\mathrm{model}}.
+\]`, text:"题目指定统计的激活包括 Transformer block、最终 RMSNorm、输出 embedding 和 cross-entropy。峰值内存各项及总和需要自己推导。"},
+  "a1-5": {title:"官方给定：训练估算参数", tex:String.raw`\[
+F_{\mathrm{backward}}=2F_{\mathrm{forward}},\quad
+C_{\mathrm{peak}}=495\;\mathrm{TFLOP/s},\quad \mathrm{MFU}=50\%.
+\]`, text:"训练 400K steps，batch size=1,024；求训练所需小时数。"},
+  "a1-6": {title:"官方给定：交叉熵与 perplexity 定义", tex:String.raw`\[
+\ell_i=-\log\!\left(\operatorname{softmax}(o_i)[x_{i+1}]\right),\qquad
+\mathrm{PPL}=\exp\!\left(\frac{1}{m}\sum_{i=1}^{m}\ell_i\right).
+\]`, text:"稳定 log-sum-exp 的写法需要结合题目要求自行整理。自选 logits 手算是补充练习，原作业要求实现 cross-entropy 函数。"},
+  "a1-7": {title:"官方给定：AdamW 更新规则（此卡为补充手算练习）", tex:String.raw`\[
 m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,\quad
 v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2,\quad
-\alpha_t=\alpha\frac{\sqrt{1-\beta_2^t}}{1-\beta_1^t},\quad
-\theta_t=(1-\alpha\lambda)\theta_{t-1}-\alpha_t\frac{m_t}{\sqrt{v_t}+\epsilon}.
-\]`,
-  "a2-1": String.raw`\[
-\operatorname{ULP}(x)\approx 2^{e-f},\qquad
-\Delta x<\tfrac12\operatorname{ULP}(x)\;\Longrightarrow\;\operatorname{round}(x+\Delta x)=x.
-\]`,
-  "a2-2": String.raw`\[
-M_{\mathrm{peak}}=M_{\mathrm{saved\ checkpoints}}+M_{\mathrm{recomputed\ block}},\qquad
-C_{\mathrm{total}}=C_{\mathrm{forward}}+C_{\mathrm{recomputation}}+C_{\mathrm{backward}}.
-\]`,
-  "a2-3": String.raw`\[
+\alpha_t=\alpha\frac{\sqrt{1-\beta_2^t}}{1-\beta_1^t}.
+\]`, text:"weight decay 与 moment update 按作业给定算法分开处理。手算题是我补充的练习，不是原作业的单独数值题。"},
+  "a2-1": {title:"官方要求：比较不同累加路径", text:"题目让你比较 FP32、FP16，以及 FP16 输入配 FP32 累加。这里没有给出舍入误差公式，需要用格式精度和实验结果解释。"},
+  "a2-2": {title:"官方给定：无 checkpoint 的基线", tex:String.raw`\[
+\text{N 个顺序 block 全部保存激活时，峰值激活内存为 }O(N).
+\]`, text:"嵌套 checkpoint 策略、最小峰值内存及重计算复杂度都需要你推导。"},
+  "a2-3": {title:"官方给定：Attention 张量形状", tex:String.raw`\[
+S,P\in\mathbb{R}^{B\times H\times T\times T},\qquad
+Q,K,V,O\in\mathbb{R}^{B\times H\times T\times d_h}.
+\]`, text:"FlashAttention 还保存行级 L；字节数和随 T 的增长规律需要你从形状推导。"},
+  "a2-4": {title:"官方给定：FlashAttention 在线 softmax 更新", tex:String.raw`\[
 \begin{aligned}
-\operatorname{shape}(S)=\operatorname{shape}(P)=(B,H,T,T),\qquad
-M_{S+P}=2BHT^2s.\\
-\operatorname{shape}(Q,K,V,O)=(B,H,T,d_h),\qquad
-M_{QKVO}=4BHTd_hs.
-\end{aligned}
-\]`,
-  "a2-4": String.raw`\[
-\begin{aligned}
-m'=\max\!\left(m,\max_j S_j\right),\quad \alpha=e^{m-m'},\quad \widetilde P=e^{S-m'},\\
+m'=\max(m,\operatorname{rowmax}(S_{\mathrm{tile}})),\quad
+\alpha=e^{m-m'},\quad \widetilde P=e^{S_{\mathrm{tile}}-m'},\\
 l'=\alpha l+\operatorname{rowsum}(\widetilde P),\qquad
 o'=\alpha o+\widetilde P V_{\mathrm{tile}},\qquad O=o'/l'.
 \end{aligned}
-\]`,
-  "a2-5": String.raw`\[
+\]`},
+  "a2-5": {title:"官方给定：FlashAttention backward 关系", tex:String.raw`\[
 \begin{aligned}
-D_i=\sum_j O_{ij}\,dO_{ij}=\sum_j P_{ij}\,dP_{ij},\qquad
-P_{ij}=e^{S_{ij}-L_i},\\
-dV=P^{\mathsf T}dO,\quad dP=dO V^{\mathsf T},\quad
-dS=P\odot(dP-D),\\
+D_i=\operatorname{rowsum}(O\odot dO),\quad P=e^{S-L},\\
+dV=P^{\mathsf T}dO,\quad dP=dO V^{\mathsf T},\quad dS=P\odot(dP-D),\\
 dQ=dS K/\sqrt{d_h},\qquad dK=dS^{\mathsf T}Q/\sqrt{d_h}.
 \end{aligned}
-\]`,
-  "a2-6": String.raw`\[
-T_{\mathrm{ring}}=2\frac{N-1}{N}\frac{S}{W},\qquad
-T_{\mathrm{alternate}}=(N-1)\frac{S}{W}.
-\]`,
-  "a2-7": String.raw`\[
+\]`, text:"这些反向关系在作业手册中给出；题目要求按它们实现 backward。"},
+  "a2-6": {title:"官方给定：标准 Ring All-Reduce", tex:String.raw`\[
+T_{\mathrm{ring}}=2\frac{N-1}{N}\frac{S}{W}.
+\]`, text:"alternate ring 每轮传完整张量，题目要求你另行推导耗时。"},
+  "a2-7": {title:"官方给定：FFN 前向 / 反向与 FLOPs 规则", tex:String.raw`\[
 \begin{aligned}
-F_{\mathrm{backward/rank}}=\frac{12BDD_{\mathrm{ff}}}{N_{\mathrm{DP}}},\qquad
-T_{\mathrm{all-reduce}}=\frac{12(N_{\mathrm{DP}}-1)DD_{\mathrm{ff}}}{N_{\mathrm{DP}}W},\\
-N_{\mathrm{DP}}\le 1+\frac{BW}{C}.
+x_1=xW_1,\quad x_2=xW_2,\quad z=f(x_1)\odot x_2,\quad y=zW_3,\\
+dz=dyW_3^{\mathsf T},\quad dx_2=dz\odot f(x_1),\\
+dx_1=dz\odot f'(x_1)\odot x_2,\\
+dx=dx_1W_1^{\mathsf T}+dx_2W_2^{\mathsf T},\\
+dW_3=z^{\mathsf T}dy,\quad dW_2=x^{\mathsf T}dx_2,\quad dW_1=x^{\mathsf T}dx_1.
 \end{aligned}
-\]`,
-  "a2-8": String.raw`\[
+\]`, text:"形状：x=(B,D)，W₁/W₂=(D,Dff)，W₃=(Dff,D)；matmul FLOPs=2mnp；FP16 每元素 2 bytes。每卡 FLOPs、通信量和扩展上限由你计算。"},
+  "a2-8": {title:"官方给定：FSDP 的 collective 顺序", tex:String.raw`\[
 \begin{aligned}
-F_{\mathrm{forward/rank}}=\frac{6BDD_{\mathrm{ff}}}{N_{\mathrm{FSDP}}},\qquad
-F_{\mathrm{backward/rank}}=\frac{12BDD_{\mathrm{ff}}}{N_{\mathrm{FSDP}}}.\\
-\text{Compute-bound if }T_{\mathrm{comm}}\le T_{\mathrm{compute}}.
+\text{forward: }&\text{all-gather weights}\;\to\;\text{batch-sharded forward},\\
+\text{backward: }&\text{all-gather weights}\;\to\;\text{batch-sharded backward}\;\to\;\text{reduce-scatter gradients}.
 \end{aligned}
-\]`,
-  "a2-9": String.raw`\[
+\]`, text:"每个 weight shard 大小为 DDff/N_FSDP；具体前向/反向 FLOPs、通信时间和阈值需要你推导。"},
+  "a2-9": {title:"官方给定：TP 切分方式与前向", tex:String.raw`\[
 \begin{aligned}
-W_1^{(i)},W_2^{(i)}\in\mathbb{R}^{D\times D_{\mathrm{ff}}/N_{\mathrm{TP}}},\qquad
-W_3^{(i)}\in\mathbb{R}^{D_{\mathrm{ff}}/N_{\mathrm{TP}}\times D}.\\
-x_1^{(i)}=xW_1^{(i)},\quad x_2^{(i)}=xW_2^{(i)},\quad
-z^{(i)}=f(x_1^{(i)})\odot x_2^{(i)},\quad
-y=\operatorname{all\text{-}reduce}_i(z^{(i)}W_3^{(i)}).
+W_1^{(i)},W_2^{(i)}&\in\mathbb{R}^{D\times D_{\mathrm{ff}}/N_{\mathrm{TP}}},\quad
+W_3^{(i)}\in\mathbb{R}^{D_{\mathrm{ff}}/N_{\mathrm{TP}}\times D},\\
+x_1^{(i)}&=xW_1^{(i)},\quad x_2^{(i)}=xW_2^{(i)},\\
+z^{(i)}&=f(x_1^{(i)})\odot x_2^{(i)},\quad y=\operatorname{all-reduce}_i(z^{(i)}W_3^{(i)}).
 \end{aligned}
-\]`,
-  "a2-10": String.raw`\[
-\begin{aligned}
+\]`, text:"W₁/W₂ 列并行，W₃ 行并行。题目要求自行写 backward、统计 FLOPs 和通信。"},
+  "a2-10": {title:"官方给定：二维网格和重叠提示", tex:String.raw`\[
 N=N_{\mathrm{FSDP}}N_{\mathrm{TP}},\qquad
-T_{\mathrm{comm,overlap}}=\max(T_{\mathrm{FSDP}},T_{\mathrm{TP}}),\\
-T_{\mathrm{comm,shared\ network}}=T_{\mathrm{FSDP}}+T_{\mathrm{TP}}.
-\end{aligned}
-\]`,
-  "a2-11": String.raw`\[
-M_{\mathrm{DDP}}=16P,\qquad
-M_{\mathrm{ZeRO-1}}=8P+\frac{8P}{N},\qquad
-M_{\mathrm{FSDP,persistent}}=\frac{16P}{N}\quad\text{bytes}.
-\]`
+\text{若两个方向可重叠，通信代价按两个方向耗时的 max 分析。}
+\]`, text:"优化切分和最大 compute-bound 设备数仍由你推导。"},
+  "a2-11": {title:"官方给定：内存核算条件", text:"P 个参数，比较 DDP、ZeRO-1 与 FSDP；所有张量为 FP32，AdamW 对每个参数保存一阶和二阶 moment。各并行策略下的每卡显存公式需要你推导，公式框不预先给出结果。"}
 };
 const key = "cs336-math-practice-v1";
 let state = JSON.parse(localStorage.getItem(key) || "{}");
@@ -240,9 +223,12 @@ function show(id){
   history.replaceState(null,"",`#${id}`);
   $("counter").textContent=`第 ${exercises.indexOf(x)+1} 题 / 共 ${exercises.length} 题`;
   $("tag").textContent=x.a; $("title").textContent=x.title; $("source").textContent=x.source; $("prompt").textContent=x.prompt;
+  const reference=references[id];
+  $("reference-title").textContent=reference?.title||"";
+  $("reference-note").textContent=reference?.text||"";
   const formula=$("formula");
   if(window.MathJax?.typesetClear) window.MathJax.typesetClear([formula]);
-  formula.innerHTML=formulas[id]||"";
+  formula.innerHTML=reference?.tex||"";
   if(window.MathJax?.typesetPromise) window.MathJax.typesetPromise([formula]).catch(()=>{});
   $("answer").value=state[id]?.answer||"";
   $("mark").textContent=state[id]?.done?"✓ 已完成（点击撤销）":"标记完成";
